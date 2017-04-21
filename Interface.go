@@ -59,6 +59,21 @@ func main() {
 	fmt.Println(config)
 }
 
+func apply() {
+	if err := breakNetwork() != nil {
+
+	}
+}
+
+func breakNetwork() error {
+	//admin := getAdminInteface()
+
+}
+
+//func getAdminInteface() string {
+//	return "eth3"
+//}
+
 func GetSysConfig() Config {
 	var config Config
 	links := getLinkList()
@@ -79,7 +94,7 @@ func GetSysConfig() Config {
 			}
 		case "bridge":
 			if bridgeLink, ok := link.(*netlink.Bridge); ok {
-				config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name,  "", addr,bridgeLink.MTU,""})
+				config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name, "", addr, bridgeLink.MTU, ""})
 			}
 		}
 	}
