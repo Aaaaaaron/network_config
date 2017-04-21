@@ -49,7 +49,7 @@ type Bridge struct {
 type Vlan struct {
 	Index  int
 	Name   string
-	Tag    string
+	Tag    int
 	Parent string
 	Addr   []netlink.Addr
 }
@@ -59,27 +59,28 @@ func main() {
 	fmt.Println(config)
 }
 
-//func GetSysConfig() Config {
 func GetSysConfig() Config {
 	var config Config
 	links := getLinkList()
 	for _, link := range links {
+		addr, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
 		switch link.Type() {
 		case "device":
 			if deviceLink, ok := link.(*netlink.Device); ok {
-				addr, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
 				config.Devices = append(config.Devices, Device{deviceLink.Index, deviceLink.Name, addr})
 			}
-			//case "bond":
-			//	var bond Bond
-			//	if bondLink, ok := link.(*netlink.Bond); ok {
-			//		bond.Index = bondLink.Index
-			//		bond.Name = bondLink.Name
-			//		bond.Mode = bondLink.Mode
-			//		bond.
-			//	}
-			//case "vlan":
-			//case "bridge":
+		case "bond":
+			if bondLink, ok := link.(*netlink.Bond); ok {
+				config.Bonds = append(config.Bonds, Bond{bondLink.Index, bondLink.Name, bondLink.Mode, "", addr})
+			}
+		case "vlan":
+			if vlanLink, ok := link.(*netlink.Vlan); ok {
+				config.Vlans = append(config.Vlans, Vlan{vlanLink.Index, vlanLink.Name, vlanLink.VlanId, "", addr})
+			}
+		case "bridge":
+			if bridgeLink, ok := link.(*netlink.Bridge); ok {
+				config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name,  "", addr,bridgeLink.MTU,""})
+			}
 		}
 	}
 	return config
