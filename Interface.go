@@ -45,6 +45,10 @@ type Vlan struct {
 	Addr   []net.IPNet
 }
 
+func main() {
+	GetSysConfig()
+}
+
 //func GetSysConfig() Config {
 func GetSysConfig() Config {
 	links := getLinkList()
