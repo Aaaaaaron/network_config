@@ -79,25 +79,31 @@ func GetSysConfig() Config {
 	links := getLinkList()
 	devMap := getDevMap(links)
 	for _, link := range links {
-		addr, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
-		switch link.Type() {
-		case "device":
-			if deviceLink, ok := link.(*netlink.Device); ok {
-				config.Devices = append(config.Devices, Device{deviceLink.Index, deviceLink.Name, addr})
-			}
-		case "bond":
-			if bondLink, ok := link.(*netlink.Bond); ok {
-				config.Bonds = append(config.Bonds, Bond{bondLink.Index, bondLink.Name, bondLink.Mode, devMap[link.Attrs().Index], addr})
-			}
-		case "vlan":
-			if vlanLink, ok := link.(*netlink.Vlan); ok {
-				parent, _ := netlink.LinkByIndex(link.Attrs().ParentIndex)
-				config.Vlans = append(config.Vlans, Vlan{vlanLink.Index, vlanLink.Name, vlanLink.VlanId, parent.Attrs().Name, addr})
-			}
-		case "bridge":
-			if bridgeLink, ok := link.(*netlink.Bridge); ok {
-				config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name, devMap[link.Attrs().Index], addr, bridgeLink.MTU, ""})
-			}
+		config = grantConfig(link, devMap)
+	}
+	return config
+}
+
+func grantConfig(link netlink.Link, devMap map[int][]string) Config {
+	var config Config
+	addr, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
+	switch link.Type() {
+	case "device":
+		if deviceLink, ok := link.(*netlink.Device); ok {
+			config.Devices = append(config.Devices, Device{deviceLink.Index, deviceLink.Name, addr})
+		}
+	case "bond":
+		if bondLink, ok := link.(*netlink.Bond); ok {
+			config.Bonds = append(config.Bonds, Bond{bondLink.Index, bondLink.Name, bondLink.Mode, devMap[link.Attrs().Index], addr})
+		}
+	case "vlan":
+		if vlanLink, ok := link.(*netlink.Vlan); ok {
+			parent, _ := netlink.LinkByIndex(link.Attrs().ParentIndex)
+			config.Vlans = append(config.Vlans, Vlan{vlanLink.Index, vlanLink.Name, vlanLink.VlanId, parent.Attrs().Name, addr})
+		}
+	case "bridge":
+		if bridgeLink, ok := link.(*netlink.Bridge); ok {
+			config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name, devMap[link.Attrs().Index], addr, bridgeLink.MTU, ""})
 		}
 	}
 	return config
@@ -105,7 +111,7 @@ func GetSysConfig() Config {
 
 // get the interface's dev,eg: 5:eth0 eth1,5 is the bond0's index
 func getDevMap(links []netlink.Link) map[int][]string {
-	var m map[int][]string
+	m := make(map[int][]string)
 	for _, link := range links {
 		if masterIndex := link.Attrs().MasterIndex; masterIndex != 0 {
 			m[masterIndex] = append(m[masterIndex], link.Attrs().Name)
