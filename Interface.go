@@ -33,14 +33,14 @@ type Bond struct {
 	Index int
 	Name  string
 	Mode  netlink.BondMode
-	Dev   string
+	Dev   []string
 	Addr  []netlink.Addr
 }
 
 type Bridge struct {
 	Index int
 	Name  string
-	Dev   string
+	Dev   []string
 	Addr  []netlink.Addr
 	Mtu   int
 	Stp   string
@@ -60,14 +60,14 @@ func main() {
 }
 
 func apply() {
-	if err := breakNetwork() != nil {
+	if err := breakNetwork(); err != nil {
 
 	}
 }
 
 func breakNetwork() error {
 	//admin := getAdminInteface()
-
+	return nil
 }
 
 //func getAdminInteface() string {
@@ -77,6 +77,7 @@ func breakNetwork() error {
 func GetSysConfig() Config {
 	var config Config
 	links := getLinkList()
+	devMap := getDevMap(links)
 	for _, link := range links {
 		addr, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
 		switch link.Type() {
@@ -86,19 +87,31 @@ func GetSysConfig() Config {
 			}
 		case "bond":
 			if bondLink, ok := link.(*netlink.Bond); ok {
-				config.Bonds = append(config.Bonds, Bond{bondLink.Index, bondLink.Name, bondLink.Mode, "", addr})
+				config.Bonds = append(config.Bonds, Bond{bondLink.Index, bondLink.Name, bondLink.Mode, devMap[link.Attrs().Index], addr})
 			}
 		case "vlan":
 			if vlanLink, ok := link.(*netlink.Vlan); ok {
-				config.Vlans = append(config.Vlans, Vlan{vlanLink.Index, vlanLink.Name, vlanLink.VlanId, "", addr})
+				parent, _ := netlink.LinkByIndex(link.Attrs().ParentIndex)
+				config.Vlans = append(config.Vlans, Vlan{vlanLink.Index, vlanLink.Name, vlanLink.VlanId, parent.Attrs().Name, addr})
 			}
 		case "bridge":
 			if bridgeLink, ok := link.(*netlink.Bridge); ok {
-				config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name, "", addr, bridgeLink.MTU, ""})
+				config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name, devMap[link.Attrs().Index], addr, bridgeLink.MTU, ""})
 			}
 		}
 	}
 	return config
+}
+
+// get the interface's dev,eg: 5:eth0 eth1,5 is the bond0's index
+func getDevMap(links []netlink.Link) map[int][]string {
+	var m map[int][]string
+	for _, link := range links {
+		if masterIndex := link.Attrs().MasterIndex; masterIndex != 0 {
+			m[masterIndex] = append(m[masterIndex], link.Attrs().Name)
+		}
+	}
+	return m
 }
 
 func getLinkList() []netlink.Link { // link represent all network interface
