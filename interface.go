@@ -79,13 +79,12 @@ func GetSysConfig() Config {
 	links := getLinkList()
 	devMap := getDevMap(links)
 	for _, link := range links {
-		config = grantConfig(link, devMap)
+		grantConfig(link, devMap, &config)
 	}
 	return config
 }
 
-func grantConfig(link netlink.Link, devMap map[int][]string) Config {
-	var config Config
+func grantConfig(link netlink.Link, devMap map[int][]string, config *Config) {
 	addr, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
 	switch link.Type() {
 	case "device":
@@ -106,7 +105,6 @@ func grantConfig(link netlink.Link, devMap map[int][]string) Config {
 			config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name, devMap[link.Attrs().Index], addr, bridgeLink.MTU, ""})
 		}
 	}
-	return config
 }
 
 // get the interface's dev,eg: 5:eth0 eth1,5 is the bond0's index
