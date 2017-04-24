@@ -23,9 +23,8 @@ func initNetwork() {
 
 func TestGetDevMap(t *testing.T) {
 	addBridge("br1", []string{"eth0", "eth1"})
-	link, _ := netlink.LinkByName("br1")
 	m := getDevMap(getLinkList())
-	assert.Equal(t, []string{"eth0", "eth1"}, m[link.Attrs().Index], "they should be equal")
+	assert.Equal(t, []string{"eth0", "eth1"}, m[getIndexByName("br1")], "they should be equal")
 	//assert.NotNil(t, err, "error should not be nil")
 }
 
@@ -65,16 +64,16 @@ func getAdminInterface() string {
 	return "eth3"
 }
 
-func addBond(name string, dev []string) error {
-	link := netlink.NewLinkBond(netlink.LinkAttrs{Name: name})
+func addBond(masterName string, dev []string) error {
+	link := netlink.NewLinkBond(netlink.LinkAttrs{Name: masterName})
 	if err := netlink.LinkAdd(link); err != nil {
 		log.Fatal(err)
 		return err
 	}
 	for _, devName := range dev {
 		link, _ := netlink.LinkByName(devName)
-		master, _ := netlink.LinkByName(name)
-		if err := netlink.LinkSetMasterByIndex(&link, master.Attrs().Index); err != nil {
+		masterID := getIndexByName(masterName)
+		if err := netlink.LinkSetMasterByIndex(link, masterID); err != nil {
 			log.Fatal(err)
 			return err
 		}
@@ -82,16 +81,16 @@ func addBond(name string, dev []string) error {
 	return nil
 }
 
-func addBridge(name string, dev []string) error {
-	link := &netlink.Bridge{netlink.LinkAttrs{Name: name, MTU: 1400}}
+func addBridge(masterName string, dev []string) error {
+	link := &netlink.Bridge{netlink.LinkAttrs{Name: masterName, MTU: 1400}}
 	if err := netlink.LinkAdd(link); err != nil {
 		log.Fatal(err)
 		return err
 	}
 	for _, devName := range dev {
 		link, _ := netlink.LinkByName(devName)
-		master, _ := netlink.LinkByName(name)
-		if err := netlink.LinkSetMasterByIndex(&link, master.Attrs().Index); err != nil {
+		masterID := getIndexByName(masterName)
+		if err := netlink.LinkSetMasterByIndex(link, masterID); err != nil {
 			log.Fatal(err)
 			return err
 		}
@@ -100,11 +99,16 @@ func addBridge(name string, dev []string) error {
 }
 
 func addVlan(name string, parent string, id int) error {
-	par, _ := netlink.LinkByName(parent)
-	link := &netlink.Vlan{netlink.LinkAttrs{Name: name, ParentIndex: par.Attrs().Index}, id}
+	parentIndex := getIndexByName(parent)
+	link := &netlink.Vlan{netlink.LinkAttrs{Name: name, ParentIndex: parentIndex}, id}
 	if err := netlink.LinkAdd(link); err != nil {
 		log.Fatal(err)
 		return err
 	}
 	return nil
+}
+
+func getIndexByName(name string) int {
+	link, _ := netlink.LinkByName("name")
+	return link.Attrs().Index
 }
