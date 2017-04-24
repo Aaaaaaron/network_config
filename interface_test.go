@@ -16,10 +16,17 @@ func initNetwork() {
 	links := getLinkList()
 	downDevice(links)
 	delInterface(links)
-	upDevice(links)
-	addBridge("br0", []string{"eth1"})
-	addBond("bond0", []string{"eth0"})
-	addVlan("eth2.100", "eht2", 100)
+	//addBridge("br0", []string{"eth1"})
+	//addBond("bond0", []string{"eth0"})
+	//addVlan("eth2.100", "eht2", 100)
+}
+
+func TestGetDevMap(t *testing.T) {
+	addBridge("br1", []string{"eth0", "eth1"})
+	link, _ := netlink.LinkByName("br1")
+	m := getDevMap(getLinkList())
+	assert.Equal(t, []string{"eth0", "eth1"}, m[link.Attrs().Index], "they should be equal")
+	//assert.NotNil(t, err, "error should not be nil")
 }
 
 func delInterface(links []netlink.Link) {
@@ -100,10 +107,4 @@ func addVlan(name string, parent string, id int) error {
 		return err
 	}
 	return nil
-}
-
-func TestGetDevMap(t *testing.T) {
-
-	assert.Equal(t, 1, 1, "they should be equal")
-	//assert.NotNil(t, err, "error should not be nil")
 }
