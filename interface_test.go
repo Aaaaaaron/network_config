@@ -16,9 +16,10 @@ func initNetwork() {
 	links := getLinkList()
 	downDevice(links)
 	delInterface(links)
-	addBond("bond0", []string{"eth0"})
+	upDevice(links)
 	addBridge("br0", []string{"eth1"})
 	addVlan("eth2.100", "eht2", 100)
+	addBond("bond0", []string{"eth0"})
 }
 func delInterface(links []netlink.Link) {
 	for _, link := range links {
@@ -28,6 +29,17 @@ func delInterface(links []netlink.Link) {
 			}
 		}
 	}
+}
+
+func upDevice(links []netlink.Link) error {
+	for _, link := range links {
+		if link.Type() == "device" {
+			if err := netlink.LinkSetUp(link); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func downDevice(links []netlink.Link) error {
@@ -40,6 +52,7 @@ func downDevice(links []netlink.Link) error {
 	}
 	return nil
 }
+
 func getAdminInterface() string {
 	return "eth3"
 }
@@ -61,7 +74,7 @@ func addBond(name string, dev []string) error {
 }
 
 func addBridge(name string, dev []string) error {
-	link := &netlink.Bridge{netlink.LinkAttrs{Name: "foo", MTU: 1400}}
+	link := &netlink.Bridge{netlink.LinkAttrs{Name: name, MTU: 1400}}
 	if err := netlink.LinkAdd(link); err != nil {
 		log.Fatal(err)
 		return err
@@ -78,7 +91,7 @@ func addBridge(name string, dev []string) error {
 
 func addVlan(name string, parent string, id int) error {
 	par, _ := netlink.LinkByName(parent)
-	link := &netlink.Vlan{netlink.LinkAttrs{Name: "bar", ParentIndex: par.Attrs().Index}, id}
+	link := &netlink.Vlan{netlink.LinkAttrs{Name: name, ParentIndex: par.Attrs().Index}, id}
 	if err := netlink.LinkAdd(link); err != nil {
 		log.Fatal(err)
 		return err
