@@ -18,8 +18,8 @@ func initNetwork() {
 	delInterface(links)
 	upDevice(links)
 	addBridge("br0", []string{"eth1"})
-	addVlan("eth2.100", "eht2", 100)
 	addBond("bond0", []string{"eth0"})
+	addVlan("eth2.100", "eht2", 100)
 }
 
 func delInterface(links []netlink.Link) {
@@ -67,7 +67,7 @@ func addBond(name string, dev []string) error {
 	for _, devName := range dev {
 		link, _ := netlink.LinkByName(devName)
 		master, _ := netlink.LinkByName(name)
-		if err := netlink.LinkSetMasterByIndex(link, master.Attrs().Index); err != nil {
+		if err := netlink.LinkSetMasterByIndex(&link, master.Attrs().Index); err != nil {
 			log.Fatal(err)
 			return err
 		}
@@ -84,7 +84,7 @@ func addBridge(name string, dev []string) error {
 	for _, devName := range dev {
 		link, _ := netlink.LinkByName(devName)
 		master, _ := netlink.LinkByName(name)
-		if err := netlink.LinkSetMasterByIndex(link, master.Attrs().Index); err != nil {
+		if err := netlink.LinkSetMasterByIndex(&link, master.Attrs().Index); err != nil {
 			log.Fatal(err)
 			return err
 		}
