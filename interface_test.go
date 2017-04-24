@@ -21,6 +21,7 @@ func initNetwork() {
 	addVlan("eth2.100", "eht2", 100)
 	addBond("bond0", []string{"eth0"})
 }
+
 func delInterface(links []netlink.Link) {
 	for _, link := range links {
 		if link.Type() == "bond" || link.Type() == "vlan" || link.Type() == "bridge" {
@@ -63,9 +64,10 @@ func addBond(name string, dev []string) error {
 		log.Fatal(err)
 		return err
 	}
-	for _, name := range dev {
-		dev, _ := netlink.LinkByName(name)
-		if err := netlink.LinkSetMasterByIndex(link, dev.Attrs().Index); err != nil {
+	for _, devName := range dev {
+		link, _ := netlink.LinkByName(devName)
+		master, _ := netlink.LinkByName(name)
+		if err := netlink.LinkSetMasterByIndex(link, master.Attrs().Index); err != nil {
 			log.Fatal(err)
 			return err
 		}
@@ -79,9 +81,10 @@ func addBridge(name string, dev []string) error {
 		log.Fatal(err)
 		return err
 	}
-	for _, name := range dev {
-		dev, _ := netlink.LinkByName(name)
-		if err := netlink.LinkSetMasterByIndex(link, dev.Attrs().Index); err != nil {
+	for _, devName := range dev {
+		link, _ := netlink.LinkByName(devName)
+		master, _ := netlink.LinkByName(name)
+		if err := netlink.LinkSetMasterByIndex(link, master.Attrs().Index); err != nil {
 			log.Fatal(err)
 			return err
 		}
