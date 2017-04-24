@@ -55,8 +55,15 @@ type Vlan struct {
 }
 
 func main() {
-	config := GetSysConfig()
-	fmt.Println(config)
+	//config := GetSysConfig()
+	//fmt.Println(config)
+	links := getLinkList()
+	downDevice(links)
+	delInterface(links)
+	upDevice(links)
+	addBridge("br0", []string{"eth1"})
+	addVlan("eth2.100", "eht2", 100)
+	addBond("bond0", []string{"eth0"})
 }
 
 func apply() {
@@ -128,4 +135,82 @@ func getLinkList() []netlink.Link { // link represent all network interface
 
 func getHostId() string {
 	return "1"
+}
+
+func delInterface(links []netlink.Link) {
+	for _, link := range links {
+		if link.Type() == "bond" || link.Type() == "vlan" || link.Type() == "bridge" {
+			if err := netlink.LinkDel(link); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+}
+
+func upDevice(links []netlink.Link) error {
+	for _, link := range links {
+		if link.Type() == "device" {
+			if err := netlink.LinkSetUp(link); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func downDevice(links []netlink.Link) error {
+	for _, link := range links {
+		if link.Type() == "device" && link.Attrs().Name != getAdminInterface() {
+			if err := netlink.LinkSetDown(link); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func getAdminInterface() string {
+	return "eth3"
+}
+
+func addBond(name string, dev []string) error {
+	link := netlink.NewLinkBond(netlink.LinkAttrs{Name: name})
+	if err := netlink.LinkAdd(link); err != nil {
+		log.Fatal(err)
+		return err
+	}
+	for _, name := range dev {
+		dev, _ := netlink.LinkByName(name)
+		if err := netlink.LinkSetMasterByIndex(link, dev.Attrs().Index); err != nil {
+			log.Fatal(err)
+			return err
+		}
+	}
+	return nil
+}
+
+func addBridge(name string, dev []string) error {
+	link := &netlink.Bridge{netlink.LinkAttrs{Name: name, MTU: 1400}}
+	if err := netlink.LinkAdd(link); err != nil {
+		log.Fatal(err)
+		return err
+	}
+	for _, name := range dev {
+		dev, _ := netlink.LinkByName(name)
+		if err := netlink.LinkSetMasterByIndex(link, dev.Attrs().Index); err != nil {
+			log.Fatal(err)
+			return err
+		}
+	}
+	return nil
+}
+
+func addVlan(name string, parent string, id int) error {
+	par, _ := netlink.LinkByName(parent)
+	link := &netlink.Vlan{netlink.LinkAttrs{Name: name, ParentIndex: par.Attrs().Index}, id}
+	if err := netlink.LinkAdd(link); err != nil {
+		log.Fatal(err)
+		return err
+	}
+	return nil
 }
