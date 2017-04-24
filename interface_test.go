@@ -14,6 +14,13 @@ func init() {
 
 func initNetwork() {
 	links := getLinkList()
+	downDevice(links)
+	delInterface(links)
+	addBond("bond0", []string{"eth0"})
+	addBridge("br0", []string{"eth1"})
+	addVlan("eth2.100", "eht2", 100)
+}
+func delInterface(links []netlink.Link) {
 	for _, link := range links {
 		if link.Type() == "bond" || link.Type() == "vlan" || link.Type() == "bridge" {
 			if err := netlink.LinkDel(link); err != nil {
@@ -21,9 +28,20 @@ func initNetwork() {
 			}
 		}
 	}
-	addBond("bond0", []string{"eth0"})
-	addBridge("br0", []string{"eth1"})
-	addVlan("eth2.100","eht2",100)
+}
+
+func downDevice(links []netlink.Link) error {
+	for _, link := range links {
+		if link.Type() == "device" && link.Attrs().Name != getAdminInterface() {
+			if err := netlink.LinkSetDown(link); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+func getAdminInterface() string {
+	return "eth3"
 }
 
 func addBond(name string, dev []string) error {
