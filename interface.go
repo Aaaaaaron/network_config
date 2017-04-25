@@ -55,8 +55,26 @@ type Vlan struct {
 }
 
 func main() {
-	config := GetSysConfig()
-	fmt.Println(config)
+	printLinks(GetSysConfig())
+	fmt.Println("---down all device---")
+	downDevice(getLinkList())
+	printLinks(GetSysConfig())
+
+	fmt.Println("---del interface---")
+	delInterface(getLinkList())
+	printLinks(GetSysConfig())
+
+	fmt.Println("---add bridge---")
+	addBridge("testbr", []string{"eth0"})
+	printLinks(GetSysConfig())
+
+	fmt.Println("---add bond---")
+	addBond("testbd", []string{"eth1"})
+	printLinks(GetSysConfig())
+
+	fmt.Println("---add vlan---")
+	addVlan("testvlan", "eth2", 900)
+	printLinks(GetSysConfig())
 }
 
 func apply() {
@@ -128,4 +146,122 @@ func getLinkList() []netlink.Link { // link represent all network interface
 
 func getHostId() string {
 	return "1"
+}
+
+//func testVlan() error {
+//	parent := &netlink.Dummy{netlink.LinkAttrs{Name: "foo"}}
+//	if err := netlink.LinkAdd(parent); err != nil {
+//		fmt.Println("add parent error")
+//		return err
+//	}
+//	link := &netlink.Vlan{netlink.LinkAttrs{Name: "bar", ParentIndex: parent.Attrs().Index}, 900}
+//	if err := netlink.LinkAdd(link); err != nil {
+//		fmt.Println("add parent error")
+//		return err
+//	}
+//	return nil
+//}
+
+// del bond, vlan, bridge, if exists
+func delInterface(links []netlink.Link) error {
+	for _, link := range links {
+		if link.Type() == "bond" || link.Type() == "vlan" || link.Type() == "bridge" {
+			if err := netlink.LinkDel(link); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func upDevice(links []netlink.Link) error {
+	for _, link := range links {
+		if link.Type() == "device" {
+			if err := netlink.LinkSetUp(link); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func downDevice(links []netlink.Link) error {
+	for _, link := range links {
+		if link.Type() == "device" && link.Attrs().Name != getAdminInterface() {
+			if err := netlink.LinkSetDown(link); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func getAdminInterface() string {
+	return "eth3"
+}
+
+func addBond(masterName string, dev []string) error {
+	bond := netlink.NewLinkBond(netlink.LinkAttrs{Name: masterName})
+	if err := netlink.LinkAdd(bond); err != nil {
+		return err
+	}
+	if err := setMaster(masterName, dev); err != nil {
+		return err
+	}
+	return nil
+}
+
+func addBridge(masterName string, dev []string) error {
+	bri := &netlink.Bridge{netlink.LinkAttrs{Name: masterName, MTU: 1400}}
+	if err := netlink.LinkAdd(bri); err != nil {
+		return err
+	}
+	if err := setMaster(masterName, dev); err != nil {
+		return err
+	}
+	return nil
+}
+
+func addVlan(name string, parent string, id int) error {
+	parentIndex := getIndexByName(parent)
+	vlan := &netlink.Vlan{netlink.LinkAttrs{Name: name, ParentIndex: parentIndex}, id}
+	if err := netlink.LinkAdd(vlan); err != nil {
+		return err
+	}
+	return nil
+}
+
+func getIndexByName(name string) int {
+	link, err := netlink.LinkByName(name)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return link.Attrs().Index
+}
+
+func setMaster(masterName string, dev []string) error {
+	for _, devName := range dev {
+		slave, err := netlink.LinkByName(devName)
+		if err != nil {
+			log.Fatal(err)
+		}
+		masterID := getIndexByName(masterName)
+		if err := netlink.LinkSetMasterByIndex(slave, masterID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func printLinks(config Config) {
+	fmt.Println("Host ID:", config.HostId)
+	for _, bond := range config.Bonds {
+		fmt.Println(bond)
+	}
+	for _, bridge := range config.Bridges {
+		fmt.Println(bridge)
+	}
+	for _, vlan := range config.Vlans {
+		fmt.Println(vlan)
+	}
 }
