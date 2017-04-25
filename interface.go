@@ -8,6 +8,13 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
+const (
+	DEVICE = "device" // eg eth0,eth1 etc...
+	BOND   = "bond"
+	VLAN   = "vlan"
+	BRIDGE = "bridge"
+)
+
 func init() {
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetOutput(os.Stdout)
@@ -55,13 +62,15 @@ type Vlan struct {
 }
 
 func main() {
+	breakNetwork()
 	printLinks(GetSysConfig())
+
 	fmt.Println("---down all device---")
-	downDevice(getLinkList())
+	downDevice()
 	printLinks(GetSysConfig())
 
 	fmt.Println("---del interface---")
-	delInterface(getLinkList())
+	delInterfaces()
 	printLinks(GetSysConfig())
 
 	fmt.Println("---add bridge---")
@@ -77,20 +86,25 @@ func main() {
 	printLinks(GetSysConfig())
 }
 
-func apply() {
+func Apply() {
 	if err := breakNetwork(); err != nil {
 
 	}
 }
 
 func breakNetwork() error {
-	//admin := getAdminInteface()
+	if err := downDevice(); err != nil {
+		log.WithError(err).Error("down device fail")
+		return err
+	}
+
+	if err := delInterfaces(); err != nil {
+		log.WithError(err).Error("del bond/bridge/vlan fail")
+		return err
+	}
+
 	return nil
 }
-
-//func getAdminInteface() string {
-//	return "eth3"
-//}
 
 func GetSysConfig() Config {
 	var config Config
@@ -105,20 +119,20 @@ func GetSysConfig() Config {
 func grantConfig(link netlink.Link, devMap map[int][]string, config *Config) {
 	addr, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
 	switch link.Type() {
-	case "device":
+	case DEVICE:
 		if deviceLink, ok := link.(*netlink.Device); ok {
 			config.Devices = append(config.Devices, Device{deviceLink.Index, deviceLink.Name, addr})
 		}
-	case "bond":
+	case BOND:
 		if bondLink, ok := link.(*netlink.Bond); ok {
 			config.Bonds = append(config.Bonds, Bond{bondLink.Index, bondLink.Name, bondLink.Mode, devMap[link.Attrs().Index], addr})
 		}
-	case "vlan":
+	case VLAN:
 		if vlanLink, ok := link.(*netlink.Vlan); ok {
 			parent, _ := netlink.LinkByIndex(link.Attrs().ParentIndex)
 			config.Vlans = append(config.Vlans, Vlan{vlanLink.Index, vlanLink.Name, vlanLink.VlanId, parent.Attrs().Name, addr})
 		}
-	case "bridge":
+	case BRIDGE:
 		if bridgeLink, ok := link.(*netlink.Bridge); ok {
 			config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name, devMap[link.Attrs().Index], addr, bridgeLink.MTU, ""})
 		}
@@ -139,7 +153,7 @@ func getDevMap(links []netlink.Link) map[int][]string {
 func getLinkList() []netlink.Link { // link represent all network interface
 	linkList, err := netlink.LinkList()
 	if err != nil {
-		log.Fatalf("get link list from netlink failed: %s", err)
+		log.WithError(err).Error("get link list from netlink failed")
 	}
 	return linkList
 }
@@ -148,24 +162,11 @@ func getHostId() string {
 	return "1"
 }
 
-//func testVlan() error {
-//	parent := &netlink.Dummy{netlink.LinkAttrs{Name: "foo"}}
-//	if err := netlink.LinkAdd(parent); err != nil {
-//		fmt.Println("add parent error")
-//		return err
-//	}
-//	link := &netlink.Vlan{netlink.LinkAttrs{Name: "bar", ParentIndex: parent.Attrs().Index}, 900}
-//	if err := netlink.LinkAdd(link); err != nil {
-//		fmt.Println("add parent error")
-//		return err
-//	}
-//	return nil
-//}
-
 // del bond, vlan, bridge, if exists
-func delInterface(links []netlink.Link) error {
+func delInterfaces() error {
+	links := getLinkList()
 	for _, link := range links {
-		if link.Type() == "bond" || link.Type() == "vlan" || link.Type() == "bridge" {
+		if link.Type() == BOND || link.Type() == VLAN || link.Type() == BRIDGE {
 			if err := netlink.LinkDel(link); err != nil {
 				return err
 			}
@@ -174,20 +175,23 @@ func delInterface(links []netlink.Link) error {
 	return nil
 }
 
-func upDevice(links []netlink.Link) error {
+func upAllInterfaces() error {
+	links := getLinkList()
 	for _, link := range links {
-		if link.Type() == "device" {
-			if err := netlink.LinkSetUp(link); err != nil {
-				return err
-			}
+		//if link.Type() == "device" {
+		if err := netlink.LinkSetUp(link); err != nil {
+			return err
 		}
+		//}
 	}
 	return nil
 }
 
-func downDevice(links []netlink.Link) error {
+// down eth0,eth1 etc.
+func downDevice() error {
+	links := getLinkList()
 	for _, link := range links {
-		if link.Type() == "device" && link.Attrs().Name != getAdminInterface() {
+		if link.Type() == DEVICE && link.Attrs().Name != getAdminInterface() {
 			if err := netlink.LinkSetDown(link); err != nil {
 				return err
 			}
@@ -247,6 +251,7 @@ func setMaster(masterName string, dev []string) error {
 		}
 		masterID := getIndexByName(masterName)
 		if err := netlink.LinkSetMasterByIndex(slave, masterID); err != nil {
+			log.WithError(err).Error("link set master failed.")
 			return err
 		}
 	}
