@@ -260,6 +260,9 @@ func setMaster(masterName string, dev []string) error {
 
 func printLinks(config Config) {
 	fmt.Println("Host ID:", config.HostId)
+	for _, device := range config.Devices {
+		fmt.Println(device)
+	}
 	for _, bond := range config.Bonds {
 		fmt.Println(bond)
 	}
