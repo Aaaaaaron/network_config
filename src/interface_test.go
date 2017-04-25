@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"fmt"
 )
 
 func TestGetDevMap(t *testing.T) {
@@ -39,5 +40,31 @@ func TestAddVlan(t *testing.T) {
 	vlan := GetSysConfig().Vlans[0]
 	assert.Equal(t, "vlan0", vlan.Name)
 	assert.Equal(t, "eth2", vlan.Parent)
+	breakNetwork()
+}
+
+func TestGetSysConfig(t *testing.T) {
+	breakNetwork()
+	printLinks(GetSysConfig())
+
+	fmt.Println("---down all device---")
+	downDevice()
+	printLinks(GetSysConfig())
+
+	fmt.Println("---del interface---")
+	delInterfaces()
+	printLinks(GetSysConfig())
+
+	fmt.Println("---add bridge---")
+	addBridge("testbr", []string{"eth0"})
+	printLinks(GetSysConfig())
+
+	fmt.Println("---add bond---")
+	addBond("testbd", []string{"eth1"})
+	printLinks(GetSysConfig())
+
+	fmt.Println("---add vlan---")
+	addVlan("testvlan", "eth2", 900)
+	printLinks(GetSysConfig())
 	breakNetwork()
 }

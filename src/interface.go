@@ -84,6 +84,7 @@ func main() {
 	fmt.Println("---add vlan---")
 	addVlan("testvlan", "eth2", 900)
 	printLinks(GetSysConfig())
+	breakNetwork()
 }
 
 func Apply() {
