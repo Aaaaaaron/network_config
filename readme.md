@@ -4,7 +4,12 @@
 3. 创建bond/bridge/vlan
 4. 上面三点的单元测试
 
+主要代码在src/interface.go
+
+测试代码在src/interface_test.go
+
 项目目录:/root/work/network_config
+
 运行测试:sh /root/work/network_config/bin/test.sh
 ***
 # 一.用户正常修改
