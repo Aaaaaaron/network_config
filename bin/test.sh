@@ -1,0 +1,1 @@
+go test ../src/interface.go ../src/interface_test.go
