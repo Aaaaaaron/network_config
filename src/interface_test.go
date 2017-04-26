@@ -33,7 +33,7 @@ func TestApply(t *testing.T) {
 
 	assert.Equal(t, "br00", sysConfig.Bridges[0].Name)
 	assert.Equal(t, []string{"eth1", "bond00"}, sysConfig.Bridges[0].Dev)
-	assert.Equal(t, 1800, sysConfig.Bridges[0].Mtu)
+	assert.Equal(t, 1500, sysConfig.Bridges[0].Mtu)
 
 	assert.Equal(t, "eth2.300", sysConfig.Vlans[0].Name)
 	assert.Equal(t, "eth2", sysConfig.Vlans[0].Parent)
@@ -55,7 +55,7 @@ func TestAddBridge(t *testing.T) {
 	bridge := GetSysConfig().Bridges[0]
 	assert.Equal(t, "br1", bridge.Name)
 	assert.Equal(t, []string{"eth0", "eth1"}, bridge.Dev)
-	assert.Equal(t, 1600, bridge.Mtu)
+	assert.Equal(t, 1500, bridge.Mtu)
 	breakNetwork()
 }
 

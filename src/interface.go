@@ -98,7 +98,7 @@ func PutToDataSource() {
 func GetFromDataSource() Config {
 	//get json
 	//convert to object
-	return nil
+	return Config{}
 }
 
 //thread safe
