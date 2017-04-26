@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -27,6 +28,7 @@ type Config struct {
 	Bonds   []Bond
 	Bridges []Bridge
 	Vlans   []Vlan
+	mutex   sync.Mutex
 	//后期想到上面新的配置项可以加在这里
 }
 
@@ -74,7 +76,7 @@ func main() {
 	printLinks(GetSysConfig())
 
 	fmt.Println("---add bridge---")
-	addBridge("testbr", []string{"eth0"})
+	addBridge("testbr", []string{"eth0"}, 1600)
 	printLinks(GetSysConfig())
 
 	fmt.Println("---add bond---")
@@ -87,10 +89,45 @@ func main() {
 	breakNetwork()
 }
 
-func Apply() {
-	if err := breakNetwork(); err != nil {
+func PutToDataSource() {
+	//config:=GetSysConfig()
+	//convert to json
+	//put(config)
+}
 
+func GetFromDataSource() Config {
+	//get json
+	//convert to object
+	return nil
+}
+
+//thread safe
+func Apply(config Config) error {
+	config.mutex.Lock()
+	defer config.mutex.Unlock()
+	if err := breakNetwork(); err != nil {
+		log.WithError(err).Error("break network failed")
+		return err
 	}
+	for _, bond := range config.Bonds {
+		if err := addBond(bond.Name, bond.Dev); err != nil {
+			log.WithError(err).Error("add bond failed")
+			return err
+		}
+	}
+	for _, vlan := range config.Vlans {
+		if err := addVlan(vlan.Name, vlan.Parent, vlan.Tag); err != nil {
+			log.WithError(err).Error("add vlan failed")
+			return err
+		}
+	}
+	for _, bridge := range config.Bridges {
+		if err := addBridge(bridge.Name, bridge.Dev, 1600); err != nil {
+			log.WithError(err).Error("add bridge failed")
+			return err
+		}
+	}
+	return nil
 }
 
 func breakNetwork() error {
@@ -179,11 +216,9 @@ func delInterfaces() error {
 func upAllInterfaces() error {
 	links := getLinkList()
 	for _, link := range links {
-		//if link.Type() == "device" {
 		if err := netlink.LinkSetUp(link); err != nil {
 			return err
 		}
-		//}
 	}
 	return nil
 }
@@ -216,8 +251,8 @@ func addBond(masterName string, dev []string) error {
 	return nil
 }
 
-func addBridge(masterName string, dev []string) error {
-	bri := &netlink.Bridge{netlink.LinkAttrs{Name: masterName, MTU: 1400}}
+func addBridge(masterName string, dev []string, mtu int) error {
+	bri := &netlink.Bridge{netlink.LinkAttrs{Name: masterName, MTU: mtu}}
 	if err := netlink.LinkAdd(bri); err != nil {
 		return err
 	}
