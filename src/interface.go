@@ -1,9 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
-	"sync"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -28,7 +28,6 @@ type Config struct {
 	Bonds   []Bond
 	Bridges []Bridge
 	Vlans   []Vlan
-	mutex   sync.Mutex
 	//后期想到上面新的配置项可以加在这里
 }
 
@@ -63,48 +62,24 @@ type Vlan struct {
 	Addr   []netlink.Addr
 }
 
-func main() {
-	breakNetwork()
-	printLinks(GetSysConfig())
-
-	fmt.Println("---down all device---")
-	downDevice()
-	printLinks(GetSysConfig())
-
-	fmt.Println("---del interface---")
-	delInterfaces()
-	printLinks(GetSysConfig())
-
-	fmt.Println("---add bridge---")
-	addBridge("testbr", []string{"eth0"}, 1600)
-	printLinks(GetSysConfig())
-
-	fmt.Println("---add bond---")
-	addBond("testbd", []string{"eth1"})
-	printLinks(GetSysConfig())
-
-	fmt.Println("---add vlan---")
-	addVlan("testvlan", "eth2", 900)
-	printLinks(GetSysConfig())
-	breakNetwork()
-}
-
 func PutToDataSource() {
-	//config:=GetSysConfig()
-	//convert to json
-	//put(config)
+	config := GetSysConfig()
+	data, err := json.MarshalIndent(config, "", "    ")
+	if err != nil {
+		log.Fatalf("JSON marshaling failed: %s", err)
+	}
+	//fmt.Printf("%s\n", data)
+	DataSource["network"] = string(data)
 }
 
-func GetFromDataSource() Config {
-	//get json
-	//convert to object
-	return Config{}
-}
+//func GetFromDataSource() Config {
+//	get json
+//	convert to object
+//return Config{}
+//}
 
 //thread safe
 func Apply(config Config) error {
-	config.mutex.Lock()
-	defer config.mutex.Unlock()
 	if err := breakNetwork(); err != nil {
 		log.WithError(err).Error("break network failed")
 		return err

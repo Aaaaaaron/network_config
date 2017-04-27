@@ -38,7 +38,27 @@
 3. 一旦系统收到 "立即应用信号",不管配置有无改动,都把当前配置应用到系统(走一遍上面的流程)
 
 # 四.API
-ModifyConifg()
+BridgeAdd(name string, dev []string, mtu int)
+
+BridgeUpdate(name string, dev []string, mtu int) // can not modify name
+
+BridgeDel(name string)
+
+BondAdd(name string, mode int, dev []string)
+
+BondUpdate(name string, mode int, dev []string) // can not modify name
+
+BondDel(name string)
+
+VlanAdd(name string, tag int, parent string)
+
+VlanUpdate( name string, tag int, parent string) // can not modify name
+
+VlanDel(name string)
+
+AssignIP(name string, ip string, mask string)
+
+DelIP(name string)
 
 ApplyModify()
 
