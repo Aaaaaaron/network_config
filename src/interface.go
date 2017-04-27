@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 
 	log "github.com/Sirupsen/logrus"
@@ -34,7 +35,7 @@ type Config struct {
 type Device struct {
 	Index int
 	Name  string
-	Addr  []netlink.Addr
+	ips   []net.IPNet
 }
 
 type Bond struct {
@@ -42,14 +43,14 @@ type Bond struct {
 	Name  string
 	Mode  netlink.BondMode
 	Dev   []string
-	Addr  []netlink.Addr
+	ips   []net.IPNet
 }
 
 type Bridge struct {
 	Index int
 	Name  string
 	Dev   []string
-	Addr  []netlink.Addr
+	ips   []net.IPNet
 	Mtu   int
 	Stp   string
 }
@@ -59,7 +60,7 @@ type Vlan struct {
 	Name   string
 	Tag    int
 	Parent string
-	Addr   []netlink.Addr
+	ips    []net.IPNet
 }
 
 func PutToDataSource() {
@@ -130,24 +131,28 @@ func GetSysConfig() Config {
 }
 
 func grantConfig(link netlink.Link, devMap map[int][]string, config *Config) {
-	addr, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
+	addrs, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
+	var ips []net.IPNet
+	for _, addr := range addrs {
+		ips = append(ips, net.IPNet{addr.IP, addr.Mask})
+	}
 	switch link.Type() {
 	case DEVICE:
 		if deviceLink, ok := link.(*netlink.Device); ok {
-			config.Devices = append(config.Devices, Device{deviceLink.Index, deviceLink.Name, addr})
+			config.Devices = append(config.Devices, Device{deviceLink.Index, deviceLink.Name, ips})
 		}
 	case BOND:
 		if bondLink, ok := link.(*netlink.Bond); ok {
-			config.Bonds = append(config.Bonds, Bond{bondLink.Index, bondLink.Name, bondLink.Mode, devMap[link.Attrs().Index], addr})
+			config.Bonds = append(config.Bonds, Bond{bondLink.Index, bondLink.Name, bondLink.Mode, devMap[link.Attrs().Index], ips})
 		}
 	case VLAN:
 		if vlanLink, ok := link.(*netlink.Vlan); ok {
 			parent, _ := netlink.LinkByIndex(link.Attrs().ParentIndex)
-			config.Vlans = append(config.Vlans, Vlan{vlanLink.Index, vlanLink.Name, vlanLink.VlanId, parent.Attrs().Name, addr})
+			config.Vlans = append(config.Vlans, Vlan{vlanLink.Index, vlanLink.Name, vlanLink.VlanId, parent.Attrs().Name, ips})
 		}
 	case BRIDGE:
 		if bridgeLink, ok := link.(*netlink.Bridge); ok {
-			config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name, devMap[link.Attrs().Index], addr, bridgeLink.MTU, ""})
+			config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name, devMap[link.Attrs().Index], ips, bridgeLink.MTU, ""})
 		}
 	}
 }
