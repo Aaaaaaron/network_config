@@ -42,14 +42,14 @@ type Bond struct {
 	Index int
 	Name  string
 	Mode  netlink.BondMode
-	Dev   []string
+	Devs  []string
 	Ips   []IPNet
 }
 
 type Bridge struct {
 	Index int
 	Name  string
-	Dev   []string
+	Devs  []string
 	Ips   []IPNet
 	Mtu   int
 	Stp   string
@@ -69,8 +69,7 @@ type IPNet struct {
 	mask net.IPMask
 }
 
-func PutToDataSource() {
-	config := GetSysConfig()
+func PutToDataSource(config Config) {
 	data, err := json.MarshalIndent(config, "", "    ")
 	if err != nil {
 		log.Fatalf("JSON marshaling failed: %s", err)
@@ -85,33 +84,6 @@ func PutToDataSource() {
 //return Config{}
 //}
 
-//thread safe
-func Apply(config Config) error {
-	if err := breakNetwork(); err != nil {
-		log.WithError(err).Error("break network failed")
-		return err
-	}
-	for _, bond := range config.Bonds {
-		if err := addBond(bond.Name, bond.Dev); err != nil {
-			log.WithError(err).Error("add bond failed")
-			return err
-		}
-	}
-	for _, vlan := range config.Vlans {
-		if err := addVlan(vlan.Name, vlan.Parent, vlan.Tag); err != nil {
-			log.WithError(err).Error("add vlan failed")
-			return err
-		}
-	}
-	for _, bridge := range config.Bridges {
-		if err := addBridge(bridge.Name, bridge.Dev, 1600); err != nil {
-			log.WithError(err).Error("add bridge failed")
-			return err
-		}
-	}
-	return nil
-}
-
 func breakNetwork() error {
 	if err := downDevice(); err != nil {
 		log.WithError(err).Error("down device fail")
@@ -124,16 +96,6 @@ func breakNetwork() error {
 	}
 
 	return nil
-}
-
-func GetSysConfig() Config {
-	var config Config
-	links := getLinkList()
-	devMap := getDevMap(links)
-	for _, link := range links {
-		grantConfig(link, devMap, &config)
-	}
-	return config
 }
 
 func grantConfig(link netlink.Link, devMap map[int][]string, config *Config) {
