@@ -40,6 +40,9 @@
 3. api sever主要负责**用户修改**到**数据源**,apply是负责**数据源**到**系统**
 
 # 四.API
+Apply(config Config)
+
+**以下所有API都是修改数据源中的配置**
 BridgeAdd(name string, dev []string, mtu int)
 
 BridgeUpdate(name string, dev []string, mtu int) // can not modify name
