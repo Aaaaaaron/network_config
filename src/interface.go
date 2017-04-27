@@ -35,7 +35,7 @@ type Config struct {
 type Device struct {
 	Index int
 	Name  string
-	ips   []net.IPNet
+	Ips   []net.IPNet
 }
 
 type Bond struct {
@@ -43,14 +43,14 @@ type Bond struct {
 	Name  string
 	Mode  netlink.BondMode
 	Dev   []string
-	ips   []net.IPNet
+	Ips   []net.IPNet
 }
 
 type Bridge struct {
 	Index int
 	Name  string
 	Dev   []string
-	ips   []net.IPNet
+	Ips   []net.IPNet
 	Mtu   int
 	Stp   string
 }
@@ -60,7 +60,7 @@ type Vlan struct {
 	Name   string
 	Tag    int
 	Parent string
-	ips    []net.IPNet
+	Ips    []net.IPNet
 }
 
 func PutToDataSource() {
