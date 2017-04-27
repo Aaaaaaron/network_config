@@ -35,7 +35,7 @@ type Config struct {
 type Device struct {
 	Index int
 	Name  string
-	Ips   []net.IPNet
+	Ips   []IPNet
 }
 
 type Bond struct {
@@ -43,14 +43,14 @@ type Bond struct {
 	Name  string
 	Mode  netlink.BondMode
 	Dev   []string
-	Ips   []net.IPNet
+	Ips   []IPNet
 }
 
 type Bridge struct {
 	Index int
 	Name  string
 	Dev   []string
-	Ips   []net.IPNet
+	Ips   []IPNet
 	Mtu   int
 	Stp   string
 }
@@ -60,7 +60,13 @@ type Vlan struct {
 	Name   string
 	Tag    int
 	Parent string
-	Ips    []net.IPNet
+	Ips    []IPNet
+}
+
+type IPNet struct {
+	IP   net.IP
+	Mask string // network mask
+	mask net.IPMask
 }
 
 func PutToDataSource() {
@@ -132,9 +138,9 @@ func GetSysConfig() Config {
 
 func grantConfig(link netlink.Link, devMap map[int][]string, config *Config) {
 	addrs, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
-	var ips []net.IPNet
+	var ips []IPNet
 	for _, addr := range addrs {
-		ips = append(ips, net.IPNet{addr.IP, addr.Mask})
+		ips = append(ips, IPNet{addr.IP, addr.IPNet.Mask.String(), addr.IPNet.Mask})
 	}
 	switch link.Type() {
 	case DEVICE:
