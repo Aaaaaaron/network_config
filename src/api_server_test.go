@@ -91,7 +91,7 @@ func TestVlanDel(t *testing.T) {
 	VlanDel("vlan0")
 	config := GetConfigFromDs()
 	assert.NotEqual(t, Vlan{Name: "vlan0", Tag: 100, Parent: "eth0"}, config.Vlans[0])
-	assert.Equal(t, Vlan{Name: "vlan1", Tag: 200, Parent: "eth1"}, config.Bonds[0])
+	assert.Equal(t, Vlan{Name: "vlan1", Tag: 200, Parent: "eth1"}, config.Vlans[0])
 	assert.Equal(t, 1, len(config.Bonds))
 }
 
