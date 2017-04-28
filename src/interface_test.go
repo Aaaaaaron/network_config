@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

@@ -70,19 +70,6 @@ func PutToDataSource(config Config) {
 	//fmt.Printf("%s\n", data)
 	DataSource["network"] = string(data)
 }
-func main() {
-	a, _ := netlink.ParseIPNet("1.1.1.1/24")
-	fmt.Println(a)
-	fmt.Println(a.IP)
-	fmt.Println(a.Mask)
-
-}
-
-//func GetFromDataSource() Config {
-//	get json
-//	convert to object
-//return Config{}
-//}
 
 func breakNetwork() error {
 	if err := downDevice(); err != nil {

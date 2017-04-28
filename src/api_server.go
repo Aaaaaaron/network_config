@@ -17,19 +17,27 @@ func init() {
 }
 
 func main() {
-	var gconfig Config
-	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth0"})
-	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth1"})
-	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth2"})
-	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth3"})
-	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth4"})
-	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth5"})
-	gconfig.Bonds = append(gconfig.Bonds, Bond{Name: "bond0", Devs: []string{"eth0", "eth1"}})
-	gconfig.Bridges = append(gconfig.Bridges, Bridge{Name: "bridge0", Devs: []string{"eth2", "eth3"}, Mtu: 1300})
-	gconfig.Vlans = append(gconfig.Vlans, Vlan{Name: "vlan0", Tag: 100, Parent: "eth0"})
-	PutToDataSource(gconfig)
-	BondAdd("adsf", 0, nil)
-	fmt.Println(GetConfigFromDs())
+	ip1 := "1.1.1.1/24"
+	ip2 := "3.3.3.3/24"
+	breakNetwork()
+	addBond("bond0", []string{"eth0", "eth1"})
+	setIP("eth2", ip1)
+	setIP("bond0", ip2)
+	fmt.Println(GetConfigFromSys())
+
+	//var gconfig Config
+	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth0"})
+	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth1"})
+	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth2"})
+	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth3"})
+	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth4"})
+	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth5"})
+	//gconfig.Bonds = append(gconfig.Bonds, Bond{Name: "bond0", Devs: []string{"eth0", "eth1"}})
+	//gconfig.Bridges = append(gconfig.Bridges, Bridge{Name: "bridge0", Devs: []string{"eth2", "eth3"}, Mtu: 1300})
+	//gconfig.Vlans = append(gconfig.Vlans, Vlan{Name: "vlan0", Tag: 100, Parent: "eth0"})
+	//PutToDataSource(gconfig)
+	//BondAdd("adsf", 0, nil)
+	//fmt.Println(GetConfigFromDs())
 	//
 	//PutToDataSource(GetConfigFromSys())
 	//fmt.Println(DataSource["network"])
