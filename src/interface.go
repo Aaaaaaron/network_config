@@ -95,6 +95,10 @@ func breakNetwork() error {
 		return err
 	}
 
+	if err := setNoIP(); err != nil {
+		log.WithError(err).Error("clear ip failed")
+		return err
+	}
 	return nil
 }
 
@@ -237,6 +241,36 @@ func setMaster(masterName string, dev []string) error {
 		if err := netlink.LinkSetMasterByIndex(slave, masterID); err != nil {
 			log.WithError(err).Error("link set master failed.")
 			return err
+		}
+	}
+	return nil
+}
+
+func setIP(name string, ipNet IPNet) error {
+	var address = &net.IPNet{IP: ipNet.IP, Mask: ipNet.mask}
+	addr := &netlink.Addr{IPNet: address}
+	link, _ := netlink.LinkByName(name)
+	if err := netlink.AddrAdd(link, addr); err != nil {
+		log.WithError(err).Error("link set ip failed.")
+		return err
+	}
+	return nil
+}
+
+func setNoIP() error {
+	links := getLinkList()
+	for _, link := range links {
+		if link.Attrs().Name == getAdminInterface() {
+			continue
+		}
+
+		addrs, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
+		for _, addr := range addrs {
+			err := netlink.AddrDel(link, &addr)
+			if err != nil {
+				//log.WithError(err).Error("link clear ip failed.")
+				return err
+			}
 		}
 	}
 	return nil

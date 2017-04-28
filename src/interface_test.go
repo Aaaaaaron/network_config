@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,4 +44,15 @@ func TestAddVlan(t *testing.T) {
 	assert.Equal(t, "eth2", vlan.Parent)
 	assert.Equal(t, 300, vlan.Tag)
 	breakNetwork()
+}
+
+func TestSetIP(t *testing.T) {
+	ipNet1 := IPNet{IP: net.ParseIP("1.1.1.1"), mask: net.IPMask(net.ParseIP("255.255.255.0"))}
+	ipNet2 := IPNet{IP: net.ParseIP("3.3.3.3"), mask: net.IPMask(net.ParseIP("255.255.255.0"))}
+	breakNetwork()
+	addBond("bond0", []string{"eth0", "eth1"})
+	setIP("eth2", ipNet1)
+	setIP("bond0", ipNet2)
+	fmt.Println(GetConfigFromSys())
+	//breakNetwork()
 }

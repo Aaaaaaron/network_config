@@ -167,18 +167,42 @@ func Apply(config Config) error {
 		log.WithError(err).Error("break network failed")
 		return err
 	}
+
+	// assign device's ip,eg assign ip:192.168.3.3 ,mask:255.255.255.0 to eth0
+	for _, device := range config.Devices {
+		if ipNets := device.Ips; len(ipNets) > 0 {
+			for _, ipNet := range ipNets {
+				if err := setIP(device.Name, ipNet); err != nil {
+					log.WithError(err).Error("device add ip failed")
+					return err
+				}
+			}
+		}
+	}
+
 	for _, bond := range config.Bonds {
 		if err := addBond(bond.Name, bond.Devs); err != nil {
 			log.WithError(err).Error("add bond failed")
 			return err
 		}
+		// assign bond's ip,eg assign ip:192.168.3.3 ,mask:255.255.255.0 to bond0
+		if ipNets := bond.Ips; len(ipNets) > 0 {
+			for _, ipNet := range ipNets {
+				if err := setIP(bond.Name, ipNet); err != nil {
+					log.WithError(err).Error("bond add ip failed")
+					return err
+				}
+			}
+		}
 	}
+
 	for _, vlan := range config.Vlans {
 		if err := addVlan(vlan.Name, vlan.Parent, vlan.Tag); err != nil {
 			log.WithError(err).Error("add vlan failed")
 			return err
 		}
 	}
+
 	for _, bridge := range config.Bridges {
 		if err := addBridge(bridge.Name, bridge.Devs, 1600); err != nil {
 			log.WithError(err).Error("add bridge failed")
