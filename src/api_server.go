@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -16,7 +17,7 @@ func init() {
 }
 
 func main() {
-	PutToDataSource()
+	PutToDataSource(GetConfigFromSys())
 	fmt.Println(DataSource["network"])
 }
 
@@ -36,19 +37,22 @@ func GetConfigFromDs() Config {
 	return config
 }
 
-func BridgeAdd(name string, dev []string, mtu int) {
+func BridgeAdd(name string, dev []string, mtu int) error {
 	// 要根据数据源里存的配置的进行校验 而不是从系统中取到的配置
 	userConfig := GetConfigFromDs()
 	if isLinkAlreadyExists(name, userConfig) {
-		log.Error("interface named " + name + " alerady exists")
+		//log.Error("interface named " + name + " alerady exists")
+		return errors.New("interface named " + name + " alerady exists")
 	}
 	if hasDevBeenOccupied(dev, userConfig) {
-		log.Error("dev has alerady been occupied")
+		//log.Error("dev has alerady been occupied")
+		return errors.New("dev has alerady been occupied")
 	}
 	bridges := GetConfigFromSys().Bridges
 	bridges = append(bridges, Bridge{Name: name, Devs: dev, Mtu: mtu})
 	userConfig.Bridges = bridges
 	PutToDataSource(userConfig)
+	return nil
 }
 
 func BridgeUpdate(name string, dev []string, mtu int) { // can not modify name
@@ -66,19 +70,22 @@ func BridgeDel(name string) {
 	}
 }
 
-func BondAdd(name string, mode int, dev []string) {
+func BondAdd(name string, mode int, dev []string) error {
 	userConfig := GetConfigFromDs()
 	if isLinkAlreadyExists(name, userConfig) {
-		log.Error("interface named " + name + " alerady exists")
+		//log.Error("interface named " + name + " alerady exists")
+		return errors.New("interface named " + name + " alerady exists")
 	}
 	if hasDevBeenOccupied(dev, userConfig) {
-		log.Error("dev has alerady been occupied")
+		//log.Error("dev has alerady been occupied")
+		return errors.New("dev has alerady been occupied")
 	}
 
 	bonds := GetConfigFromSys().Bonds
 	bonds = append(bonds, Bond{Name: name, Mode: netlink.BondMode(mode), Devs: dev})
 	userConfig.Bonds = bonds
 	PutToDataSource(userConfig)
+	return nil
 }
 
 func BondUpdate(name string, mode int, dev []string) { // can not modify name
@@ -96,15 +103,17 @@ func BondDel(name string) {
 	}
 }
 
-func VlanAdd(name string, tag int, parent string) {
+func VlanAdd(name string, tag int, parent string) error {
 	userConfig := GetConfigFromDs()
 	if isLinkAlreadyExists(name, userConfig) {
-		log.Error("interface named " + name + " alerady exists")
+		//log.Error("interface named " + name + " alerady exists")
+		return errors.New("interface named " + name + " alerady exists")
 	}
 	vlans := GetConfigFromSys().Vlans
 	vlans = append(vlans, Vlan{Name: name, Tag: tag, Parent: parent})
 	userConfig.Vlans = vlans
 	PutToDataSource(userConfig)
+	return nil
 }
 
 func VlanUpdate(name string, tag int, parent string) { // can not modify name
