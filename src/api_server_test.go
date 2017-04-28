@@ -10,15 +10,15 @@ import (
 var gconfig Config
 
 func init() {
-	gconfig.Devices[0] = Device{Name: "eth0"}
-	gconfig.Devices[1] = Device{Name: "eth1"}
-	gconfig.Devices[2] = Device{Name: "eth2"}
-	gconfig.Devices[3] = Device{Name: "eth3"}
-	gconfig.Devices[4] = Device{Name: "eth4"}
-	gconfig.Devices[5] = Device{Name: "eth5"}
-	gconfig.Bonds[0] = Bond{Name: "bond0", Devs: []string{"eth0", "eth1"}}
-	gconfig.Bridges[0] = Bridge{Name: "bridge0", Devs: []string{"eth2", "eth3"}, Mtu: 1300}
-	gconfig.Vlans[0] = Vlan{Name: "vlan0", Tag: 100, Parent: "eth0"}
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth0"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth1"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth2"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth3"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth4"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth5"})
+	gconfig.Bonds = append(gconfig.Bonds, Bond{Name: "bond0", Devs: []string{"eth0", "eth1"}})
+	gconfig.Bridges = append(gconfig.Bridges, Bridge{Name: "bridge0", Devs: []string{"eth2", "eth3"}, Mtu: 1300})
+	gconfig.Vlans = append(gconfig.Vlans, Vlan{Name: "vlan0", Tag: 100, Parent: "eth0"})
 	PutToDataSource(gconfig)
 }
 
