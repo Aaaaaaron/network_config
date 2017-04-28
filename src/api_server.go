@@ -129,7 +129,7 @@ func VlanAdd(name string, tag int, parent string) error {
 		//log.Error("interface named " + name + " alerady exists")
 		return errors.New("interface named " + name + " alerady exists")
 	}
-	vlans := GetConfigFromSys().Vlans
+	vlans := GetConfigFromDs().Vlans
 	vlans = append(vlans, Vlan{Name: name, Tag: tag, Parent: parent})
 	userConfig.Vlans = vlans
 	PutToDataSource(userConfig)

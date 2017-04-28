@@ -72,7 +72,7 @@ func TestBridgeAdd(t *testing.T) {
 func TestBridgeDel(t *testing.T) {
 	BridgeDel("bridge0")
 	config := GetConfigFromDs()
-	assert.NotEqual(t, Bridge{Name: "bridge0", Devs: []string{"eth2", "eth3"}, Mtu: 1300}, gconfig.Bridges[0])
+	assert.NotEqual(t, Bridge{Name: "bridge0", Devs: []string{"eth2", "eth3"}, Mtu: 1300}, config.Bridges[0])
 	assert.Equal(t, Bridge{Name: "bridge1", Devs: []string{"eth5"}, Mtu: 1333}, config.Bridges[0])
 	assert.Equal(t, 1, len(config.Bridges))
 }
