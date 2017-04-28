@@ -17,11 +17,24 @@ func init() {
 }
 
 func main() {
-	PutToDataSource(GetConfigFromSys())
-	fmt.Println(DataSource["network"])
+	var gconfig Config
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth0"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth1"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth2"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth3"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth4"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth5"})
+	gconfig.Bonds = append(gconfig.Bonds, Bond{Name: "bond0", Devs: []string{"eth0", "eth1"}})
+	gconfig.Bridges = append(gconfig.Bridges, Bridge{Name: "bridge0", Devs: []string{"eth2", "eth3"}, Mtu: 1300})
+	gconfig.Vlans = append(gconfig.Vlans, Vlan{Name: "vlan0", Tag: 100, Parent: "eth0"})
+	PutToDataSource(gconfig)
 	BondAdd("adsf", 0, nil)
-	fmt.Println(DataSource["network"])
-	fmt.Println(GetConfigFromDs().Bonds[1])
+	fmt.Println(GetConfigFromDs())
+	//
+	//PutToDataSource(GetConfigFromSys())
+	//fmt.Println(DataSource["network"])
+	//fmt.Println(isLinkAlreadyExists("bond0", gconfig))
+	//hasDevBeenOccupied([]string{"eth0"}, gconfig)
 }
 
 func GetConfigFromSys() Config {
@@ -51,7 +64,7 @@ func BridgeAdd(name string, dev []string, mtu int) error {
 		//log.Error("dev has alerady been occupied")
 		return errors.New("dev has alerady been occupied")
 	}
-	bridges := GetConfigFromSys().Bridges
+	bridges := GetConfigFromDs().Bridges
 	bridges = append(bridges, Bridge{Name: name, Devs: dev, Mtu: mtu})
 	userConfig.Bridges = bridges
 	PutToDataSource(userConfig)
@@ -84,7 +97,7 @@ func BondAdd(name string, mode int, dev []string) error {
 		return errors.New("dev has alerady been occupied")
 	}
 
-	bonds := GetConfigFromSys().Bonds
+	bonds := GetConfigFromDs().Bonds
 	bonds = append(bonds, Bond{Name: name, Mode: netlink.BondMode(mode), Devs: dev})
 	userConfig.Bonds = bonds
 	PutToDataSource(userConfig)
