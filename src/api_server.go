@@ -19,6 +19,9 @@ func init() {
 func main() {
 	PutToDataSource(GetConfigFromSys())
 	fmt.Println(DataSource["network"])
+	BondAdd("adsf", 0, nil)
+	fmt.Println(DataSource["network"])
+	fmt.Println(GetConfigFromDs().Bonds[1])
 }
 
 func GetConfigFromSys() Config {

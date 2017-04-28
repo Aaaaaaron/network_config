@@ -37,7 +37,8 @@ func TestGetConfigFromDs(t *testing.T) {
 
 func TestBondAdd(t *testing.T) {
 	err := BondAdd("bond1", 0, []string{"eth4"})
-	assert.Equal(t, Bond{Name: "bond1", Devs: []string{"eth4"}}, gconfig.Bonds[1])
+	config := GetConfigFromDs()
+	assert.Equal(t, Bond{Name: "bond1", Devs: []string{"eth4"}}, config.Bonds[1])
 	assert.Nil(t, err)
 
 	err2 := BondAdd("bond0", 0, []string{})
@@ -49,14 +50,16 @@ func TestBondAdd(t *testing.T) {
 
 func TestBondDel(t *testing.T) {
 	BondDel("bond0")
-	assert.NotEqual(t, Bond{Name: "bond0", Devs: []string{"eth0", "eth1"}}, gconfig.Bonds[0])
-	assert.Equal(t, Bond{Name: "bond1", Devs: []string{"eth4"}}, gconfig.Bonds[0])
-	assert.Equal(t, 1, len(gconfig.Bonds))
+	config := GetConfigFromDs()
+	assert.NotEqual(t, Bond{Name: "bond0", Devs: []string{"eth0", "eth1"}}, config.Bonds[0])
+	assert.Equal(t, Bond{Name: "bond1", Devs: []string{"eth4"}}, config.Bonds[0])
+	assert.Equal(t, 1, len(config.Bonds))
 }
 
 func TestBridgeAdd(t *testing.T) {
 	err := BridgeAdd("bridge1", []string{"eth5"}, 1333)
-	assert.Equal(t, Bridge{Name: "bridge1", Devs: []string{"eth5"}, Mtu: 1333}, gconfig.Bridges[1])
+	config := GetConfigFromDs()
+	assert.Equal(t, Bridge{Name: "bridge1", Devs: []string{"eth5"}, Mtu: 1333}, config.Bridges[1])
 	assert.Nil(t, err)
 
 	err2 := BridgeAdd("bridge0", []string{}, 1333)
@@ -68,14 +71,16 @@ func TestBridgeAdd(t *testing.T) {
 
 func TestBridgeDel(t *testing.T) {
 	BridgeDel("bridge0")
+	config := GetConfigFromDs()
 	assert.NotEqual(t, Bridge{Name: "bridge0", Devs: []string{"eth2", "eth3"}, Mtu: 1300}, gconfig.Bridges[0])
-	assert.Equal(t, Bridge{Name: "bridge1", Devs: []string{"eth5"}, Mtu: 1333}, gconfig.Bridges[0])
-	assert.Equal(t, 1, len(gconfig.Bridges))
+	assert.Equal(t, Bridge{Name: "bridge1", Devs: []string{"eth5"}, Mtu: 1333}, config.Bridges[0])
+	assert.Equal(t, 1, len(config.Bridges))
 }
 
 func TestVlanAdd(t *testing.T) {
 	err := VlanAdd("vlan1", 200, "eth1")
-	assert.Equal(t, Vlan{Name: "vlan1", Tag: 200, Parent: "eth1"}, gconfig.Vlans[1])
+	config := GetConfigFromDs()
+	assert.Equal(t, Vlan{Name: "vlan1", Tag: 200, Parent: "eth1"}, config.Vlans[1])
 	assert.Nil(t, err)
 
 	err2 := VlanAdd("vlan0", 0, "")
@@ -84,9 +89,10 @@ func TestVlanAdd(t *testing.T) {
 
 func TestVlanDel(t *testing.T) {
 	VlanDel("vlan0")
-	assert.NotEqual(t, Vlan{Name: "vlan0", Tag: 100, Parent: "eth0"}, gconfig.Vlans[0])
-	assert.Equal(t, Vlan{Name: "vlan1", Tag: 200, Parent: "eth1"}, gconfig.Bonds[0])
-	assert.Equal(t, 1, len(gconfig.Bonds))
+	config := GetConfigFromDs()
+	assert.NotEqual(t, Vlan{Name: "vlan0", Tag: 100, Parent: "eth0"}, config.Vlans[0])
+	assert.Equal(t, Vlan{Name: "vlan1", Tag: 200, Parent: "eth1"}, config.Bonds[0])
+	assert.Equal(t, 1, len(config.Bonds))
 }
 
 func TestApply(t *testing.T) {
