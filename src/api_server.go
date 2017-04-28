@@ -84,6 +84,8 @@ func BridgeDel(name string) {
 			bridges = append(bridges[:i], bridges[i+1:]...)
 		}
 	}
+	userConfig.Bridges = bridges
+	PutToDataSource(userConfig)
 }
 
 func BondAdd(name string, mode int, dev []string) error {
@@ -111,12 +113,14 @@ func BondUpdate(name string, mode int, dev []string) { // can not modify name
 
 func BondDel(name string) {
 	userConfig := GetConfigFromDs()
-	bonds := userConfig.Bridges
+	bonds := userConfig.Bonds
 	for i, bri := range bonds {
 		if bri.Name == name {
 			bonds = append(bonds[:i], bonds[i+1:]...)
 		}
 	}
+	userConfig.Bonds = bonds
+	PutToDataSource(userConfig)
 }
 
 func VlanAdd(name string, tag int, parent string) error {
@@ -145,6 +149,8 @@ func VlanDel(name string) {
 			vlans = append(vlans[:i], vlans[i+1:]...)
 		}
 	}
+	userConfig.Vlans = vlans
+	PutToDataSource(userConfig)
 }
 
 func AssignIP(name string, ip string, mask string) {
