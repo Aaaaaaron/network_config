@@ -47,12 +47,12 @@ func TestAddVlan(t *testing.T) {
 }
 
 func TestSetIP(t *testing.T) {
-	ipNet1 := IPNet{IP: net.ParseIP("1.1.1.1"), mask: net.IPMask(net.ParseIP("255.255.255.0"))}
-	ipNet2 := IPNet{IP: net.ParseIP("3.3.3.3"), mask: net.IPMask(net.ParseIP("255.255.255.0"))}
+	ip1:="1.1.1.1/24"
+	ip2:="3.3.3.3/24"
 	breakNetwork()
 	addBond("bond0", []string{"eth0", "eth1"})
-	setIP("eth2", ipNet1)
-	setIP("bond0", ipNet2)
+	setIP("eth2", ip1)
+	setIP("bond0", ip2)
 	fmt.Println(GetConfigFromSys())
 	//breakNetwork()
 }

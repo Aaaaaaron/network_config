@@ -170,7 +170,7 @@ func Apply(config Config) error {
 
 	// assign device's ip,eg assign ip:192.168.3.3 ,mask:255.255.255.0 to eth0
 	for _, device := range config.Devices {
-		if ipNets := device.Ips; len(ipNets) > 0 {
+		if ipNets := device.IpNets; len(ipNets) > 0 {
 			for _, ipNet := range ipNets {
 				if err := setIP(device.Name, ipNet); err != nil {
 					log.WithError(err).Error("device add ip failed")
@@ -186,7 +186,7 @@ func Apply(config Config) error {
 			return err
 		}
 		// assign bond's ip,eg assign ip:192.168.3.3 ,mask:255.255.255.0 to bond0
-		if ipNets := bond.Ips; len(ipNets) > 0 {
+		if ipNets := bond.IpNets; len(ipNets) > 0 {
 			for _, ipNet := range ipNets {
 				if err := setIP(bond.Name, ipNet); err != nil {
 					log.WithError(err).Error("bond add ip failed")

@@ -117,6 +117,7 @@ func TestApply(t *testing.T) {
 	assert.Equal(t, "eth2.300", sysConfig.Vlans[0].Name)
 	assert.Equal(t, "eth2", sysConfig.Vlans[0].Parent)
 	assert.Equal(t, 300, sysConfig.Vlans[0].Tag)
+	breakNetwork()
 }
 
 func TestGetConfigFromSys(t *testing.T) {

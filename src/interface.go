@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 
 	log "github.com/Sirupsen/logrus"
@@ -33,26 +32,26 @@ type Config struct {
 }
 
 type Device struct {
-	Index int
-	Name  string
-	Ips   []IPNet
+	Index  int
+	Name   string
+	IpNets []string
 }
 
 type Bond struct {
-	Index int
-	Name  string
-	Mode  netlink.BondMode
-	Devs  []string
-	Ips   []IPNet
+	Index  int
+	Name   string
+	Mode   netlink.BondMode
+	Devs   []string
+	IpNets []string
 }
 
 type Bridge struct {
-	Index int
-	Name  string
-	Devs  []string
-	Ips   []IPNet
-	Mtu   int
-	Stp   string
+	Index  int
+	Name   string
+	Devs   []string
+	IpNets []string
+	Mtu    int
+	Stp    string
 }
 
 type Vlan struct {
@@ -60,13 +59,7 @@ type Vlan struct {
 	Name   string
 	Tag    int
 	Parent string
-	Ips    []IPNet
-}
-
-type IPNet struct {
-	IP   net.IP
-	Mask string // network mask
-	mask net.IPMask
+	IpNets []string
 }
 
 func PutToDataSource(config Config) {
@@ -76,6 +69,13 @@ func PutToDataSource(config Config) {
 	}
 	//fmt.Printf("%s\n", data)
 	DataSource["network"] = string(data)
+}
+func main() {
+	a, _ := netlink.ParseIPNet("1.1.1.1/24")
+	fmt.Println(a)
+	fmt.Println(a.IP)
+	fmt.Println(a.Mask)
+
 }
 
 //func GetFromDataSource() Config {
@@ -104,27 +104,27 @@ func breakNetwork() error {
 
 func grantConfig(link netlink.Link, devMap map[int][]string, config *Config) {
 	addrs, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
-	var ips []IPNet
+	var ipNets []string
 	for _, addr := range addrs {
-		ips = append(ips, IPNet{addr.IP, addr.IPNet.Mask.String(), addr.IPNet.Mask})
+		ipNets = append(ipNets, addr.IPNet.String())
 	}
 	switch link.Type() {
 	case DEVICE:
 		if deviceLink, ok := link.(*netlink.Device); ok {
-			config.Devices = append(config.Devices, Device{deviceLink.Index, deviceLink.Name, ips})
+			config.Devices = append(config.Devices, Device{deviceLink.Index, deviceLink.Name, ipNets})
 		}
 	case BOND:
 		if bondLink, ok := link.(*netlink.Bond); ok {
-			config.Bonds = append(config.Bonds, Bond{bondLink.Index, bondLink.Name, bondLink.Mode, devMap[link.Attrs().Index], ips})
+			config.Bonds = append(config.Bonds, Bond{bondLink.Index, bondLink.Name, bondLink.Mode, devMap[link.Attrs().Index], ipNets})
 		}
 	case VLAN:
 		if vlanLink, ok := link.(*netlink.Vlan); ok {
 			parent, _ := netlink.LinkByIndex(link.Attrs().ParentIndex)
-			config.Vlans = append(config.Vlans, Vlan{vlanLink.Index, vlanLink.Name, vlanLink.VlanId, parent.Attrs().Name, ips})
+			config.Vlans = append(config.Vlans, Vlan{vlanLink.Index, vlanLink.Name, vlanLink.VlanId, parent.Attrs().Name, ipNets})
 		}
 	case BRIDGE:
 		if bridgeLink, ok := link.(*netlink.Bridge); ok {
-			config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name, devMap[link.Attrs().Index], ips, bridgeLink.MTU, ""})
+			config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name, devMap[link.Attrs().Index], ipNets, bridgeLink.MTU, ""})
 		}
 	}
 }
@@ -246,9 +246,8 @@ func setMaster(masterName string, dev []string) error {
 	return nil
 }
 
-func setIP(name string, ipNet IPNet) error {
-	var address = &net.IPNet{IP: ipNet.IP, Mask: ipNet.mask}
-	addr := &netlink.Addr{IPNet: address}
+func setIP(name string, ipNet string) error {
+	addr, _ := netlink.ParseAddr(ipNet)
 	link, _ := netlink.LinkByName(name)
 	if err := netlink.AddrAdd(link, addr); err != nil {
 		log.WithError(err).Error("link set ip failed.")
