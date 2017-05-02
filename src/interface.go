@@ -247,7 +247,7 @@ func setIP(name string, ipNet string) error {
 func setNoIP() error {
 	links := getLinkList()
 	for _, link := range links {
-		if link.Attrs().Name == getAdminInterface() {
+		if link.Attrs().Name == getAdminInterface() || link.Attrs().Name == "lo" {
 			continue
 		}
 
