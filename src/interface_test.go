@@ -53,5 +53,5 @@ func TestSetIP(t *testing.T) {
 	setIP("eth2", ip1)
 	setIP("bond0", ip2)
 	fmt.Println(GetConfigFromSys())
-	//breakNetwork()
+	breakNetwork()
 }
