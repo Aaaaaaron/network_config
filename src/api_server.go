@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -16,36 +19,114 @@ func init() {
 	log.SetLevel(log.InfoLevel)
 }
 
-//func main() {
+func main() {
+	http.HandleFunc("/config", config)
+	http.HandleFunc("/apply", apply)
+	http.HandleFunc("/bondadd", bondAdd)
+	http.HandleFunc("/bonddel", bondDel)
+	http.HandleFunc("/briadd", briAdd)
+	http.HandleFunc("/bridel", briDel)
+	http.HandleFunc("/vlanadd", vlanAdd)
+	http.HandleFunc("/vlandel", vlanDel)
+	http.HandleFunc("/ipadd", ipAdd)
+	http.HandleFunc("/ipdel", ipDel)
+	err := http.ListenAndServe(":9090", nil) //设置监听的端口
+	if err != nil {
+		log.Fatal("ListenAndServe: ", err)
+	}
+}
 
-	//ip1 := "1.1.1.1/24"
-	//ip2 := "3.3.3.3/24"
-	//breakNetwork()
-	//addBond("bond0", []string{"eth0", "eth1"})
-	//setIP("eth2", ip1)
-	//setIP("bond0", ip2)
-	//fmt.Println(GetConfigFromSys())
-	//breakNetwork()
+func config(resp http.ResponseWriter, req *http.Request, ) {
+	req.ParseForm()
+	resp.Header().Set("Content-Type", "application/json")
+	r, _ := json.MarshalIndent(GetConfigFromDs(), "", "\t")
+	resp.Write(r)
+}
 
-	//var gconfig Config
-	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth0"})
-	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth1"})
-	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth2"})
-	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth3"})
-	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth4"})
-	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth5"})
-	//gconfig.Bonds = append(gconfig.Bonds, Bond{Name: "bond0", Devs: []string{"eth0", "eth1"}})
-	//gconfig.Bridges = append(gconfig.Bridges, Bridge{Name: "bridge0", Devs: []string{"eth2", "eth3"}, Mtu: 1300})
-	//gconfig.Vlans = append(gconfig.Vlans, Vlan{Name: "vlan0", Tag: 100, Parent: "eth0"})
-	//PutToDataSource(gconfig)
-	//BondAdd("adsf", 0, nil)
-	//fmt.Println(GetConfigFromDs())
-	//
-	//PutToDataSource(GetConfigFromSys())
-	//fmt.Println(DataSource["network"])
-	//fmt.Println(isLinkAlreadyExists("bond0", gconfig))
-	//hasDevBeenOccupied([]string{"eth0"}, gconfig)
-//}
+func apply(resp http.ResponseWriter, req *http.Request, ) {
+	req.ParseForm()
+	if err := Apply(GetConfigFromDs()); err != nil {
+		http.Error(resp, err.Error(), http.StatusInternalServerError)
+	}
+
+	resp.Header().Set("Content-Type", "application/json")
+	r, _ := json.MarshalIndent(GetConfigFromSys(), "", "\t")
+	resp.Write(r)
+}
+
+func bondAdd(resp http.ResponseWriter, req *http.Request, ) {
+	req.ParseForm()
+	name := req.FormValue("name")
+	mode, _ := strconv.Atoi(req.FormValue("mode"))
+	devs := strings.Split(req.FormValue("dev"), " ")
+
+	if err := BondAdd(name, mode, devs); err != nil {
+		http.Error(resp, err.Error(), http.StatusInternalServerError)
+	}
+
+	resp.Header().Set("Content-Type", "application/json")
+	jData, _ := json.MarshalIndent(GetConfigFromDs(), "", "\t")
+	fmt.Println(GetConfigFromDs())
+	resp.Write(jData)
+}
+
+func bondDel(resp http.ResponseWriter, req *http.Request, ) {
+	req.ParseForm()
+	name := req.FormValue("name")
+	BondDel(name)
+}
+
+func briAdd(resp http.ResponseWriter, req *http.Request, ) {
+	req.ParseForm()
+	name := req.FormValue("name")
+	devs := strings.Split(req.FormValue("dev"), " ")
+	mtu, _ := strconv.Atoi(req.FormValue("mtu"))
+
+	if err := BridgeAdd(name, devs, mtu); err != nil {
+		http.Error(resp, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func briDel(resp http.ResponseWriter, req *http.Request, ) {
+	req.ParseForm()
+	name := req.FormValue("name")
+	BondDel(name)
+}
+
+func vlanAdd(resp http.ResponseWriter, req *http.Request, ) {
+	req.ParseForm()
+	name := req.FormValue("name")
+	parent := req.FormValue("parent")
+	tag, _ := strconv.Atoi(req.FormValue("tage"))
+
+	if err := VlanAdd(name, tag, parent); err != nil {
+		http.Error(resp, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func vlanDel(resp http.ResponseWriter, req *http.Request, ) {
+	req.ParseForm()
+	name := req.FormValue("name")
+	BondDel(name)
+	resp.Header().Set("Content-Type", "application/json")
+}
+
+func ipAdd(resp http.ResponseWriter, req *http.Request, ) {
+	req.ParseForm()
+	name := req.FormValue("name")
+	ips := strings.Split(req.FormValue("ips"), " ")
+
+	if err := AssignIP(name, ips); err != nil {
+		http.Error(resp, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func ipDel(resp http.ResponseWriter, req *http.Request, ) {
+	req.ParseForm()
+	name := req.FormValue("name")
+	ip := req.FormValue("ip")
+	DelIP(name, ip)
+}
 
 func GetConfigFromSys() Config {
 	var config Config
