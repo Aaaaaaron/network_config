@@ -233,6 +233,7 @@ func setMaster(masterName string, dev []string) error {
 	return nil
 }
 
+// only can assign ip to devices and bonds
 func setIP(name string, ipNet string) error {
 	addr, _ := netlink.ParseAddr(ipNet)
 	link, _ := netlink.LinkByName(name)

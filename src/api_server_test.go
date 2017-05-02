@@ -95,6 +95,37 @@ func TestVlanDel(t *testing.T) {
 	assert.Equal(t, 1, len(config.Bonds))
 }
 
+func TestAssignIP(t *testing.T) {
+	addBond("bond9", []string{})
+	AssignIP("eth0", "1.1.1.1/24")
+	AssignIP("eth0", "2.2.2.2/24")
+	AssignIP("eth0", "3.3.3.3/24")
+	AssignIP("bond9", "33.33.33.33/24")
+	config := GetConfigFromDs()
+	for _, d := range config.Devices {
+		if d.Name == "eth0" {
+			assert.Equal(t, []string{"1.1.1.1/24", "2.2.2.2/24", "3.3.3.3/24"}, d.IpNets)
+		}
+	}
+
+	for _, b := range config.Bonds {
+		if b.Name == "bond9" {
+			assert.Equal(t, []string{"33.33.33.33/24"}, b.IpNets)
+		}
+	}
+	BondDel("bond9")
+}
+
+func TestDelIP(t *testing.T) {
+	DelIP("eth0", "2.2.2.2/24")
+	config := GetConfigFromDs()
+	for _, d := range config.Devices {
+		if d.Name == "eth0" {
+			assert.Equal(t, []string{"1.1.1.1/24", "3.3.3.3/24"}, d.IpNets)
+		}
+	}
+}
+
 func TestApply(t *testing.T) {
 	breakNetwork()
 	config := GetConfigFromSys()

@@ -79,11 +79,6 @@ func BridgeAdd(name string, dev []string, mtu int) error {
 	return nil
 }
 
-func BridgeUpdate(name string, dev []string, mtu int) { // can not modify name
-	BridgeDel(name)
-	BridgeAdd(name, dev, mtu)
-}
-
 func BridgeDel(name string) {
 	userConfig := GetConfigFromDs()
 	bridges := userConfig.Bridges
@@ -94,6 +89,11 @@ func BridgeDel(name string) {
 	}
 	userConfig.Bridges = bridges
 	PutToDataSource(userConfig)
+}
+
+func BridgeUpdate(name string, dev []string, mtu int) error{ // can not modify name
+	BridgeDel(name)
+	return BridgeAdd(name, dev, mtu)
 }
 
 func BondAdd(name string, mode int, dev []string) error {
@@ -114,11 +114,6 @@ func BondAdd(name string, mode int, dev []string) error {
 	return nil
 }
 
-func BondUpdate(name string, mode int, dev []string) { // can not modify name
-	BondDel(name)
-	BondAdd(name, mode, dev)
-}
-
 func BondDel(name string) {
 	userConfig := GetConfigFromDs()
 	bonds := userConfig.Bonds
@@ -129,6 +124,11 @@ func BondDel(name string) {
 	}
 	userConfig.Bonds = bonds
 	PutToDataSource(userConfig)
+}
+
+func BondUpdate(name string, mode int, dev []string) error { // can not modify name
+	BondDel(name)
+	return BondAdd(name, mode, dev)
 }
 
 func VlanAdd(name string, tag int, parent string) error {
@@ -144,11 +144,6 @@ func VlanAdd(name string, tag int, parent string) error {
 	return nil
 }
 
-func VlanUpdate(name string, tag int, parent string) { // can not modify name
-	VlanDel(name)
-	VlanAdd(name, tag, parent)
-}
-
 func VlanDel(name string) {
 	userConfig := GetConfigFromDs()
 	vlans := userConfig.Vlans
@@ -161,12 +156,60 @@ func VlanDel(name string) {
 	PutToDataSource(userConfig)
 }
 
-func AssignIP(name string, ip string, mask string) {
-
+func VlanUpdate(name string, tag int, parent string) error { // can not modify name
+	VlanDel(name)
+	return VlanAdd(name, tag, parent)
 }
 
-func DelIP(name string) {
+func AssignIP(name string, ipNet string) error {
+	_, err := netlink.ParseAddr(ipNet)
+	if err != nil {
+		//log.WithError(err).Error("ip net format error, parse failed")
+		return errors.New("ip net :" + ipNet + "format error, parse failed")
+	}
+	userConfig := GetConfigFromDs()
+	device := userConfig.Devices
+	bonds := userConfig.Bonds
+	for _, d := range device {
+		if d.Name == name {
+			d.IpNets = append(d.IpNets, ipNet)
+		}
+	}
+	userConfig.Devices = device
+	for _, b := range bonds {
+		if b.Name == name {
+			b.IpNets = append(b.IpNets, ipNet)
+		}
+	}
+	userConfig.Bonds = bonds
+	PutToDataSource(userConfig)
+}
 
+func DelIP(name string, ipNet string) {
+	userConfig := GetConfigFromDs()
+	device := userConfig.Devices
+	bonds := userConfig.Bonds
+	for _, d := range device {
+		if d.Name == name {
+			for i, ipnet := range d.IpNets {
+				if ipnet == ipNet {
+					d.IpNets = append(d.IpNets[:i], d.IpNets[i+1:]...)
+				}
+			}
+		}
+	}
+	userConfig.Devices = device
+	for _, b := range bonds {
+		if b.Name == name {
+			for i, ipnet := range b.IpNets {
+				if ipnet == ipNet {
+					b.IpNets = append(b.IpNets[:i], b.IpNets[i+1:]...)
+				}
+			}
+		}
+	}
+	userConfig.Bonds = bonds
+	PutToDataSource(userConfig)
 }
 
 //not thread safe
