@@ -17,9 +17,22 @@ func init() {
 }
 
 func main() {
+	var gconfig Config
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth0"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth1"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth2"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth3"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth4"})
+	gconfig.Devices = append(gconfig.Devices, Device{Name: "eth5"})
+	gconfig.Bonds = append(gconfig.Bonds, Bond{Name: "bond0", Devs: []string{"eth0", "eth1"}})
+	gconfig.Bridges = append(gconfig.Bridges, Bridge{Name: "bridge0", Devs: []string{"eth2", "eth3"}, Mtu: 1300})
+	gconfig.Vlans = append(gconfig.Vlans, Vlan{Name: "vlan0", Tag: 100, Parent: "eth0"})
+	PutToDataSource(gconfig)
 	AssignIP("eth0", "1.1.1.1/24")
 	AssignIP("eth0", "2.2.2.2/24")
 	AssignIP("eth0", "3.3.3.3/24")
+	BondAdd("bond9", 0, []string{})
+	addBond("bond9", []string{})
 	AssignIP("bond9", "33.33.33.33/24")
 	config := GetConfigFromDs()
 	fmt.Println(config)
@@ -179,15 +192,19 @@ func AssignIP(name string, ipNet string) error {
 	device := userConfig.Devices
 	bonds := userConfig.Bonds
 	for _, d := range device {
+		ipNets := d.IpNets
 		if d.Name == name {
-			d.IpNets = append(d.IpNets, ipNet)
+			ipNets = append(ipNets, ipNet)
 		}
+		d.IpNets = ipNets
 	}
 	userConfig.Devices = device
 	for _, b := range bonds {
+		ipNets := b.IpNets
 		if b.Name == name {
-			b.IpNets = append(b.IpNets, ipNet)
+			ipNets = append(ipNets, ipNet)
 		}
+		b.IpNets = ipNets
 	}
 	userConfig.Bonds = bonds
 	PutToDataSource(userConfig)
@@ -199,23 +216,27 @@ func DelIP(name string, ipNet string) {
 	device := userConfig.Devices
 	bonds := userConfig.Bonds
 	for _, d := range device {
+		ipNets := d.IpNets
 		if d.Name == name {
-			for i, ipnet := range d.IpNets {
+			for i, ipnet := range ipNets {
 				if ipnet == ipNet {
-					d.IpNets = append(d.IpNets[:i], d.IpNets[i+1:]...)
+					ipNets = append(ipNets[:i], ipNets[i+1:]...)
 				}
 			}
 		}
+		d.IpNets = ipNets
 	}
 	userConfig.Devices = device
 	for _, b := range bonds {
+		ipNets := b.IpNets
 		if b.Name == name {
-			for i, ipnet := range b.IpNets {
+			for i, ipnet := range ipNets {
 				if ipnet == ipNet {
-					b.IpNets = append(b.IpNets[:i], b.IpNets[i+1:]...)
+					ipNets = append(ipNets[:i], ipNets[i+1:]...)
 				}
 			}
 		}
+		b.IpNets = ipNets
 	}
 	userConfig.Bonds = bonds
 	PutToDataSource(userConfig)
