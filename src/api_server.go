@@ -189,56 +189,43 @@ func AssignIP(name string, ipNet string) error {
 		return errors.New("ip net :" + ipNet + "format error, parse failed")
 	}
 	userConfig := GetConfigFromDs()
-	device := userConfig.Devices
-	bonds := userConfig.Bonds
-	for _, d := range device {
-		ipNets := d.IpNets
+	for i, d := range userConfig.Devices {
 		if d.Name == name {
-			ipNets = append(ipNets, ipNet)
+			userConfig.Devices[i].IpNets = append(userConfig.Devices[i].IpNets, ipNet...)
 		}
-		d.IpNets = ipNets
 	}
-	userConfig.Devices = device
-	for _, b := range bonds {
-		ipNets := b.IpNets
+	for i, b := range userConfig.Bonds {
 		if b.Name == name {
-			ipNets = append(ipNets, ipNet)
+			userConfig.Bonds[i].IpNets = append(userConfig.Bonds[i].IpNets, ipNet...)
 		}
-		b.IpNets = ipNets
 	}
-	userConfig.Bonds = bonds
 	PutToDataSource(userConfig)
 	return nil
 }
 
 func DelIP(name string, ipNet string) {
 	userConfig := GetConfigFromDs()
-	device := userConfig.Devices
-	bonds := userConfig.Bonds
-	for _, d := range device {
-		ipNets := d.IpNets
+
+	for i, d := range userConfig.Devices {
 		if d.Name == name {
-			for i, ipnet := range ipNets {
+			for j, ipnet := range userConfig.Devices[i].IpNets {
 				if ipnet == ipNet {
-					ipNets = append(ipNets[:i], ipNets[i+1:]...)
+					userConfig.Devices[i].IpNets = append(userConfig.Devices[i].IpNets[:j], userConfig.Devices[i].IpNets[j+1:]...)
 				}
 			}
 		}
-		d.IpNets = ipNets
 	}
-	userConfig.Devices = device
-	for _, b := range bonds {
-		ipNets := b.IpNets
+
+	for i, b := range userConfig.Bonds {
 		if b.Name == name {
-			for i, ipnet := range ipNets {
+			for j, ipnet := range userConfig.Bonds[i].IpNets {
 				if ipnet == ipNet {
-					ipNets = append(ipNets[:i], ipNets[i+1:]...)
+					userConfig.Bonds[i].IpNets = append(userConfig.Bonds[i].IpNets[:j], userConfig.Bonds[i].IpNets[j+1:]...)
 				}
 			}
 		}
-		b.IpNets = ipNets
 	}
-	userConfig.Bonds = bonds
+
 	PutToDataSource(userConfig)
 }
 
