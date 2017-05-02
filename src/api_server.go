@@ -16,11 +16,13 @@ func init() {
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.InfoLevel)
+	PutToDataSource(GetConfigFromSys())
 }
 
 func main() {
 	http.HandleFunc("/config", config)
 	http.HandleFunc("/dsconfig", dsconfig)
+	http.HandleFunc("/break", breakNet)
 	http.HandleFunc("/apply", apply)
 	http.HandleFunc("/bondadd", bondAdd)
 	http.HandleFunc("/bonddel", bondDel)
@@ -35,6 +37,13 @@ func main() {
 		log.Fatal("ListenAndServe: ", err)
 	}
 }
+
+func breakNet(resp http.ResponseWriter, req *http.Request) {
+	if err := breakNetwork(); err != nil {
+		http.Error(resp, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 func dsconfig(resp http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 	resp.Header().Set("Content-Type", "application/json")
@@ -44,7 +53,6 @@ func dsconfig(resp http.ResponseWriter, req *http.Request) {
 
 func config(resp http.ResponseWriter, req *http.Request, ) {
 	req.ParseForm()
-	PutToDataSource(GetConfigFromSys())
 	resp.Header().Set("Content-Type", "application/json")
 	r, _ := json.MarshalIndent(GetConfigFromDs(), "", "\t")
 	resp.Write(r)
