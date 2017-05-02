@@ -21,6 +21,7 @@ func init() {
 
 func main() {
 	http.HandleFunc("/config", config)
+	http.HandleFunc("/dsconfig", dsconfig)
 	http.HandleFunc("/apply", apply)
 	http.HandleFunc("/bondadd", bondAdd)
 	http.HandleFunc("/bonddel", bondDel)
@@ -34,6 +35,12 @@ func main() {
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
+}
+func dsconfig(resp http.ResponseWriter, req *http.Request) {
+	req.ParseForm()
+	resp.Header().Set("Content-Type", "application/json")
+	r, _ := json.MarshalIndent(GetConfigFromDs(), "", "\t")
+	resp.Write(r)
 }
 
 func config(resp http.ResponseWriter, req *http.Request, ) {
@@ -59,16 +66,11 @@ func bondAdd(resp http.ResponseWriter, req *http.Request, ) {
 	req.ParseForm()
 	name := req.FormValue("name")
 	mode, _ := strconv.Atoi(req.FormValue("mode"))
-	devs := strings.Split(req.FormValue("dev"), " ")
+	devs := strings.Split(req.FormValue("dev"), ",")
 
 	if err := BondAdd(name, mode, devs); err != nil {
 		http.Error(resp, err.Error(), http.StatusInternalServerError)
 	}
-
-	resp.Header().Set("Content-Type", "application/json")
-	jData, _ := json.MarshalIndent(GetConfigFromDs(), "", "\t")
-	fmt.Println(GetConfigFromDs())
-	resp.Write(jData)
 }
 
 func bondDel(resp http.ResponseWriter, req *http.Request, ) {
@@ -80,7 +82,7 @@ func bondDel(resp http.ResponseWriter, req *http.Request, ) {
 func briAdd(resp http.ResponseWriter, req *http.Request, ) {
 	req.ParseForm()
 	name := req.FormValue("name")
-	devs := strings.Split(req.FormValue("dev"), " ")
+	devs := strings.Split(req.FormValue("dev"), ",")
 	mtu, _ := strconv.Atoi(req.FormValue("mtu"))
 
 	if err := BridgeAdd(name, devs, mtu); err != nil {
@@ -115,7 +117,7 @@ func vlanDel(resp http.ResponseWriter, req *http.Request, ) {
 func ipAdd(resp http.ResponseWriter, req *http.Request, ) {
 	req.ParseForm()
 	name := req.FormValue("name")
-	ips := strings.Split(req.FormValue("ips"), " ")
+	ips := strings.Split(req.FormValue("ips"), ",")
 
 	if err := AssignIP(name, ips); err != nil {
 		http.Error(resp, err.Error(), http.StatusInternalServerError)
