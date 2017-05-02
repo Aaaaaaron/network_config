@@ -166,7 +166,7 @@ func upAllInterfaces() error {
 func downDevice() error {
 	links := getLinkList()
 	for _, link := range links {
-		if link.Type() == DEVICE && link.Attrs().Name != getAdminInterface() {
+		if link.Type() == DEVICE && link.Attrs().Name != getAdminInterface() && link.Attrs().Name != "lo" {
 			if err := netlink.LinkSetDown(link); err != nil {
 				return err
 			}
