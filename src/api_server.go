@@ -182,12 +182,15 @@ func VlanUpdate(name string, tag int, parent string) error { // can not modify n
 	return VlanAdd(name, tag, parent)
 }
 
-func AssignIP(name string, ipNet string) error {
-	_, err := netlink.ParseAddr(ipNet)
-	if err != nil {
-		//log.WithError(err).Error("ip net format error, parse failed")
-		return errors.New("ip net :" + ipNet + "format error, parse failed")
+func AssignIP(name string, ipNet []string) error {
+	for _, ips := range ipNet {
+		_, err := netlink.ParseAddr(ips)
+		if err != nil {
+			//log.WithError(err).Error("ip net format error, parse failed")
+			return errors.New("ip net :" + ips + "format error, parse failed")
+		}
 	}
+
 	userConfig := GetConfigFromDs()
 	for i, d := range userConfig.Devices {
 		if d.Name == name {
