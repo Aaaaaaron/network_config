@@ -303,7 +303,7 @@ func Apply(config Config) error {
 
 	// assign device's ip,eg assign ip:192.168.3.3 ,mask:255.255.255.0 to eth0
 	for _, device := range config.Devices {
-		if device.Name == getAdminInterface() {
+		if device.Name == getAdminInterface() || device.Name == "lo"{
 			continue
 		}
 
