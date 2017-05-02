@@ -17,13 +17,21 @@ func init() {
 }
 
 func main() {
-	ip1 := "1.1.1.1/24"
-	ip2 := "3.3.3.3/24"
-	breakNetwork()
-	addBond("bond0", []string{"eth0", "eth1"})
-	setIP("eth2", ip1)
-	setIP("bond0", ip2)
-	fmt.Println(GetConfigFromSys())
+	AssignIP("eth0", "1.1.1.1/24")
+	AssignIP("eth0", "2.2.2.2/24")
+	AssignIP("eth0", "3.3.3.3/24")
+	AssignIP("bond9", "33.33.33.33/24")
+	config := GetConfigFromDs()
+	fmt.Println(config)
+
+	//ip1 := "1.1.1.1/24"
+	//ip2 := "3.3.3.3/24"
+	//breakNetwork()
+	//addBond("bond0", []string{"eth0", "eth1"})
+	//setIP("eth2", ip1)
+	//setIP("bond0", ip2)
+	//fmt.Println(GetConfigFromSys())
+	//breakNetwork()
 
 	//var gconfig Config
 	//gconfig.Devices = append(gconfig.Devices, Device{Name: "eth0"})
@@ -91,7 +99,7 @@ func BridgeDel(name string) {
 	PutToDataSource(userConfig)
 }
 
-func BridgeUpdate(name string, dev []string, mtu int) error{ // can not modify name
+func BridgeUpdate(name string, dev []string, mtu int) error { // can not modify name
 	BridgeDel(name)
 	return BridgeAdd(name, dev, mtu)
 }
@@ -183,6 +191,7 @@ func AssignIP(name string, ipNet string) error {
 	}
 	userConfig.Bonds = bonds
 	PutToDataSource(userConfig)
+	return nil
 }
 
 func DelIP(name string, ipNet string) {
