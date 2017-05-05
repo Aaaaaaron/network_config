@@ -34,19 +34,25 @@ type ResponseMessage struct {
 func main() {
 	router := httprouter.New()
 	router.GET("/init", initNetwork)
+	router.GET("/config", config)
+	router.GET("/apply", apply)
 
-	http.HandleFunc("/config", config)
-	http.HandleFunc("/dsconfig", dsconfig)
-	http.HandleFunc("/apply", apply)
-	http.HandleFunc("/bondadd", bondAdd)
-	http.HandleFunc("/bonddel", bondDel)
-	http.HandleFunc("/briadd", briAdd)
-	http.HandleFunc("/bridel", briDel)
-	http.HandleFunc("/vlanadd", vlanAdd)
-	http.HandleFunc("/vlandel", vlanDel)
-	http.HandleFunc("/ipadd", ipAdd)
-	http.HandleFunc("/ipdel", ipDel)
-	err := http.ListenAndServe(":9090", nil) //设置监听的端口
+	router.PUT("/bond", bondAdd)
+	router.DELETE("/bond", bondDel)
+	router.POST("/bond", bondUpdate)
+
+	router.PUT("/bridge", briAdd)
+	router.DELETE("/bridge", briDel)
+	router.POST("/bridge", briUpdate)
+
+	router.PUT("/vlan", vlanAdd)
+	router.DELETE("/vlan", vlanDel)
+	router.POST("/vlan", vlanUpdate)
+
+	router.PUT("/ip", ipAdd)
+	router.DELETE("/ip", ipDel)
+
+	err := http.ListenAndServe(":9090", router) //设置监听的端口
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
@@ -54,8 +60,9 @@ func main() {
 
 func initNetwork(resp http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 	var rm ResponseMessage
+	resp.Header().Set("Content-Type", "application/json")
 	if err := breakNetwork(); err != nil {
-		rm = ResponseMessage{Status: false, Message: "初始化网络配置失败" + err.Error(), Code: http.StatusInternalServerError}
+		rm = ResponseMessage{Status: false, Message: "初始化网络配置失败." + err.Error(), Code: http.StatusInternalServerError}
 	}
 	rm = ResponseMessage{Status: true, Message: "初始化网络配置成功", Code: http.StatusOK}
 
@@ -63,114 +70,213 @@ func initNetwork(resp http.ResponseWriter, _ *http.Request, _ httprouter.Params)
 	resp.Write(ret)
 }
 
-func dsconfig(resp http.ResponseWriter, req *http.Request) {
-	req.ParseForm()
+func config(resp http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+	var rm ResponseMessage
 	resp.Header().Set("Content-Type", "application/json")
 	userConfig, err := GetConfigFromDs()
 	if err != nil {
-		log.WithError(err).Error("Get config from database failed")
+		rm = ResponseMessage{Status: false, Message: "获取数据库配置失败." + err.Error(), Code: http.StatusInternalServerError}
 	}
+	rm = ResponseMessage{Result: userConfig, Status: true, Message: "初始化网络配置成功", Code: http.StatusOK}
 
-	r, _ := json.MarshalIndent(userConfig, "", "\t")
-	resp.Write(r)
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
 }
 
-func config(resp http.ResponseWriter, req *http.Request, ) {
-	req.ParseForm()
+//func dsconfig(resp http.ResponseWriter, req *http.Request) {
+//	req.ParseForm()
+//	resp.Header().Set("Content-Type", "application/json")
+//	userConfig, err := GetConfigFromDs()
+//	if err != nil {
+//		log.WithError(err).Error("Get config from database failed")
+//	}
+//
+//	r, _ := json.MarshalIndent(userConfig, "", "\t")
+//	resp.Write(r)
+//}
+
+func apply(resp http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+	var rm ResponseMessage
 	resp.Header().Set("Content-Type", "application/json")
 	userConfig, err := GetConfigFromDs()
 	if err != nil {
-		log.WithError(err).Error("Get config from database failed")
-	}
-
-	r, _ := json.MarshalIndent(userConfig, "", "\t")
-	resp.Write(r)
-}
-
-func apply(resp http.ResponseWriter, req *http.Request, ) {
-	req.ParseForm()
-	userConfig, err := GetConfigFromDs()
-	if err != nil {
-		log.WithError(err).Error("Get config from database failed")
+		rm = ResponseMessage{Status: false, Message: "获取数据库配置失败." + err.Error(), Code: http.StatusInternalServerError}
 	}
 
 	if err := Apply(userConfig); err != nil {
-		http.Error(resp, err.Error(), http.StatusInternalServerError)
+		rm = ResponseMessage{Status: false, Message: "应用网络配置失败." + err.Error(), Code: http.StatusInternalServerError}
 	}
 
-	resp.Header().Set("Content-Type", "application/json")
-	sysConfig, _ := GetConfigFromSys()
-	r, _ := json.MarshalIndent(sysConfig, "", "\t")
-	resp.Write(r)
+	//sysConfig, _ := GetConfigFromSys()
+	//r, _ := json.MarshalIndent(sysConfig, "", "\t")
+	rm = ResponseMessage{Result: userConfig, Status: true, Message: "应用网络配置成功", Code: http.StatusOK}
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
 }
 
-func bondAdd(resp http.ResponseWriter, req *http.Request, ) {
-	req.ParseForm()
-	name := req.FormValue("name")
-	mode, _ := strconv.Atoi(req.FormValue("mode"))
-	devs := strings.Split(req.FormValue("dev"), ",")
+func bondAdd(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	var rm ResponseMessage
+	resp.Header().Set("Content-Type", "application/json")
+	name := ps.ByName("name")
+	mode, _ := strconv.Atoi(ps.ByName("mode"))
+	devs := strings.Split(ps.ByName("dev"), ",")
 
 	if err := BondAdd(name, mode, devs); err != nil {
-		http.Error(resp, err.Error(), http.StatusInternalServerError)
+		rm = ResponseMessage{Status: false, Message: "Bond添加失败." + err.Error(), Code: http.StatusInternalServerError}
 	}
+	rm = ResponseMessage{Status: true, Message: "Bond添加成功", Code: http.StatusOK}
+
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
 }
 
-func bondDel(resp http.ResponseWriter, req *http.Request, ) {
-	req.ParseForm()
-	name := req.FormValue("name")
-	BondDel(name)
+func bondUpdate(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	var rm ResponseMessage
+	resp.Header().Set("Content-Type", "application/json")
+	name := ps.ByName("name")
+	mode, _ := strconv.Atoi(ps.ByName("mode"))
+	devs := strings.Split(ps.ByName("dev"), ",")
+
+	if err := BondUpdate(name, mode, devs); err != nil {
+		rm = ResponseMessage{Status: false, Message: "Bond更新失败." + err.Error(), Code: http.StatusInternalServerError}
+	}
+	rm = ResponseMessage{Status: true, Message: "Bond更新成功", Code: http.StatusOK}
+
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
 }
 
-func briAdd(resp http.ResponseWriter, req *http.Request, ) {
-	req.ParseForm()
-	name := req.FormValue("name")
-	devs := strings.Split(req.FormValue("dev"), ",")
-	mtu, _ := strconv.Atoi(req.FormValue("mtu"))
+func bondDel(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	var rm ResponseMessage
+	resp.Header().Set("Content-Type", "application/json")
+	name := ps.ByName("name")
+	if err := BondDel(name); err != nil {
+		rm = ResponseMessage{Status: false, Message: "Bond删除失败." + err.Error(), Code: http.StatusInternalServerError}
+	}
+	rm = ResponseMessage{Status: true, Message: "Bond删除成功", Code: http.StatusOK}
+
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
+}
+
+func briAdd(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	var rm ResponseMessage
+	resp.Header().Set("Content-Type", "application/json")
+	name := ps.ByName("name")
+	devs := strings.Split(ps.ByName("dev"), ",")
+	mtu, _ := strconv.Atoi(ps.ByName("mtu"))
 
 	if err := BridgeAdd(name, devs, mtu); err != nil {
-		http.Error(resp, err.Error(), http.StatusInternalServerError)
+		rm = ResponseMessage{Status: false, Message: "Bridge添加失败." + err.Error(), Code: http.StatusInternalServerError}
 	}
+	rm = ResponseMessage{Status: true, Message: "Bridge添加成功", Code: http.StatusOK}
+
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
 }
 
-func briDel(resp http.ResponseWriter, req *http.Request, ) {
-	req.ParseForm()
-	name := req.FormValue("name")
-	BondDel(name)
+func briUpdate(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	var rm ResponseMessage
+	resp.Header().Set("Content-Type", "application/json")
+	name := ps.ByName("name")
+	devs := strings.Split(ps.ByName("dev"), ",")
+	mtu, _ := strconv.Atoi(ps.ByName("mtu"))
+
+	if err := BridgeUpdate(name, devs, mtu); err != nil {
+		rm = ResponseMessage{Status: false, Message: "Bridge更新失败." + err.Error(), Code: http.StatusInternalServerError}
+	}
+	rm = ResponseMessage{Status: true, Message: "Bridge更新成功", Code: http.StatusOK}
+
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
 }
 
-func vlanAdd(resp http.ResponseWriter, req *http.Request, ) {
-	req.ParseForm()
-	name := req.FormValue("name")
-	parent := req.FormValue("parent")
-	tag, _ := strconv.Atoi(req.FormValue("tage"))
+func briDel(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	var rm ResponseMessage
+	resp.Header().Set("Content-Type", "application/json")
+	name := ps.ByName("name")
+	if err := BridgeDel(name); err != nil {
+		rm = ResponseMessage{Status: false, Message: "Bridge删除失败." + err.Error(), Code: http.StatusInternalServerError}
+	}
+
+	rm = ResponseMessage{Status: true, Message: "Bridge删除成功", Code: http.StatusOK}
+
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
+}
+
+func vlanAdd(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	var rm ResponseMessage
+	resp.Header().Set("Content-Type", "application/json")
+	name := ps.ByName("name")
+	parent := ps.ByName("parent")
+	tag, _ := strconv.Atoi(ps.ByName("tag"))
 
 	if err := VlanAdd(name, tag, parent); err != nil {
-		http.Error(resp, err.Error(), http.StatusInternalServerError)
+		rm = ResponseMessage{Status: false, Message: "Vlan添加失败." + err.Error(), Code: http.StatusInternalServerError}
 	}
+	rm = ResponseMessage{Status: true, Message: "Vlan添加成功", Code: http.StatusOK}
+
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
 }
 
-func vlanDel(resp http.ResponseWriter, req *http.Request, ) {
-	req.ParseForm()
-	name := req.FormValue("name")
-	BondDel(name)
+func vlanUpdate(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	var rm ResponseMessage
 	resp.Header().Set("Content-Type", "application/json")
+	name := ps.ByName("name")
+	parent := ps.ByName("parent")
+	tag, _ := strconv.Atoi(ps.ByName("tag"))
+
+	if err := VlanAdd(name, tag, parent); err != nil {
+		rm = ResponseMessage{Status: false, Message: "Vlan更新失败." + err.Error(), Code: http.StatusInternalServerError}
+	}
+	rm = ResponseMessage{Status: true, Message: "Vlan更新成功", Code: http.StatusOK}
+
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
 }
 
-func ipAdd(resp http.ResponseWriter, req *http.Request, ) {
-	req.ParseForm()
-	name := req.FormValue("name")
-	ips := strings.Split(req.FormValue("ips"), ",")
+func vlanDel(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	var rm ResponseMessage
+	resp.Header().Set("Content-Type", "application/json")
+	name := ps.ByName("name")
+	if err := BondDel(name); err != nil {
+		rm = ResponseMessage{Status: false, Message: "Vlan删除失败." + err.Error(), Code: http.StatusInternalServerError}
+	}
+	rm = ResponseMessage{Status: true, Message: "Vlan删除成功", Code: http.StatusOK}
+
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
+}
+
+func ipAdd(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	var rm ResponseMessage
+	resp.Header().Set("Content-Type", "application/json")
+	name := ps.ByName("name")
+	ips := strings.Split(ps.ByName("ips"), ",")
 
 	if err := AssignIP(name, ips); err != nil {
-		http.Error(resp, err.Error(), http.StatusInternalServerError)
+		rm = ResponseMessage{Status: false, Message: "IP添加失败." + err.Error(), Code: http.StatusInternalServerError}
 	}
+	rm = ResponseMessage{Status: true, Message: "IP添加成功", Code: http.StatusOK}
+
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
 }
 
-func ipDel(resp http.ResponseWriter, req *http.Request, ) {
-	req.ParseForm()
-	name := req.FormValue("name")
-	ip := req.FormValue("ip")
-	DelIP(name, ip)
+func ipDel(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	var rm ResponseMessage
+	resp.Header().Set("Content-Type", "application/json")
+	name := ps.ByName("name")
+	ip := ps.ByName("ip")
+	if err := DelIP(name, ip); err != nil {
+		rm = ResponseMessage{Status: false, Message: "IP删除失败." + err.Error(), Code: http.StatusInternalServerError}
+	}
+	rm = ResponseMessage{Status: true, Message: "IP删除成功", Code: http.StatusOK}
+
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
 }
 
 ////////////////////////////////////////////////////////////////////
