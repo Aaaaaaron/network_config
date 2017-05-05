@@ -9,20 +9,34 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/julienschmidt/httprouter"
 	"github.com/vishvananda/netlink"
+)
+
+var (
+	ErrNameUsed = errors.New("Interface name alerady exists")
+	ErrDevsUsed = errors.New("Devs has alerady been occupied")
 )
 
 func init() {
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.InfoLevel)
-	PutToDataSource(GetConfigFromSys())
+}
+
+type ResponseMessage struct {
+	Result  interface{}    `json:"result,omitempty"`
+	Status  bool           `json:"status"`
+	Message string         `json:"message"`
+	Code    int            `json:"code"`
 }
 
 func main() {
+	router := httprouter.New()
+	router.GET("/init", initNetwork)
+
 	http.HandleFunc("/config", config)
 	http.HandleFunc("/dsconfig", dsconfig)
-	http.HandleFunc("/break", breakNet)
 	http.HandleFunc("/apply", apply)
 	http.HandleFunc("/bondadd", bondAdd)
 	http.HandleFunc("/bonddel", bondDel)
@@ -38,34 +52,55 @@ func main() {
 	}
 }
 
-func breakNet(resp http.ResponseWriter, req *http.Request) {
+func initNetwork(resp http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+	var rm ResponseMessage
 	if err := breakNetwork(); err != nil {
-		http.Error(resp, err.Error(), http.StatusInternalServerError)
+		rm = ResponseMessage{Status: false, Message: "初始化网络配置失败" + err.Error(), Code: http.StatusInternalServerError}
 	}
+	rm = ResponseMessage{Status: true, Message: "初始化网络配置成功", Code: http.StatusOK}
+
+	ret, _ := json.MarshalIndent(rm, "", "\t")
+	resp.Write(ret)
 }
 
 func dsconfig(resp http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 	resp.Header().Set("Content-Type", "application/json")
-	r, _ := json.MarshalIndent(GetConfigFromDs(), "", "\t")
+	userConfig, err := GetConfigFromDs()
+	if err != nil {
+		log.WithError(err).Error("Get config from database failed")
+	}
+
+	r, _ := json.MarshalIndent(userConfig, "", "\t")
 	resp.Write(r)
 }
 
 func config(resp http.ResponseWriter, req *http.Request, ) {
 	req.ParseForm()
 	resp.Header().Set("Content-Type", "application/json")
-	r, _ := json.MarshalIndent(GetConfigFromDs(), "", "\t")
+	userConfig, err := GetConfigFromDs()
+	if err != nil {
+		log.WithError(err).Error("Get config from database failed")
+	}
+
+	r, _ := json.MarshalIndent(userConfig, "", "\t")
 	resp.Write(r)
 }
 
 func apply(resp http.ResponseWriter, req *http.Request, ) {
 	req.ParseForm()
-	if err := Apply(GetConfigFromDs()); err != nil {
+	userConfig, err := GetConfigFromDs()
+	if err != nil {
+		log.WithError(err).Error("Get config from database failed")
+	}
+
+	if err := Apply(userConfig); err != nil {
 		http.Error(resp, err.Error(), http.StatusInternalServerError)
 	}
 
 	resp.Header().Set("Content-Type", "application/json")
-	r, _ := json.MarshalIndent(GetConfigFromSys(), "", "\t")
+	sysConfig, _ := GetConfigFromSys()
+	r, _ := json.MarshalIndent(sysConfig, "", "\t")
 	resp.Write(r)
 }
 
@@ -138,50 +173,58 @@ func ipDel(resp http.ResponseWriter, req *http.Request, ) {
 	DelIP(name, ip)
 }
 
-func GetConfigFromSys() Config {
+////////////////////////////////////////////////////////////////////
+// get config form system
+func GetConfigFromSys() (Config, error) {
 	var config Config
-	links := getLinkList()
-	devMap := getDevMap(links)
+	links, err := netlink.LinkList()
+	if err != nil {
+		log.WithError(err).Error("Get link list fail")
+		return Config{}, err
+	}
+
+	devMap := getSlaveList(links)
 	for _, link := range links {
-		grantConfig(link, devMap, &config)
-	}
-	return config
-}
-
-func GetConfigFromDs() Config {
-	var config Config
-	json.Unmarshal(([]byte)(DataSource["network"]), &config)
-	return config
-}
-
-func BridgeAdd(name string, dev []string, mtu int) error {
-	// 要根据数据源里存的配置的进行校验 而不是从系统中取到的配置
-	userConfig := GetConfigFromDs()
-	if isLinkAlreadyExists(name, userConfig) {
-		//log.Error("interface named " + name + " alerady exists")
-		return errors.New("interface named " + name + " alerady exists")
-	}
-	if hasDevBeenOccupied(dev, userConfig) {
-		//log.Error("dev has alerady been occupied")
-		return errors.New("dev has alerady been occupied")
-	}
-	bridges := GetConfigFromDs().Bridges
-	bridges = append(bridges, Bridge{Name: name, Devs: dev, Mtu: mtu})
-	userConfig.Bridges = bridges
-	PutToDataSource(userConfig)
-	return nil
-}
-
-func BridgeDel(name string) {
-	userConfig := GetConfigFromDs()
-	bridges := userConfig.Bridges
-	for i, bri := range bridges {
-		if bri.Name == name {
-			bridges = append(bridges[:i], bridges[i+1:]...)
+		if err = grantConfig(link, devMap, &config); err != nil {
+			log.WithError(err).Error("Grant config fail")
+			return Config{}, err
 		}
 	}
-	userConfig.Bridges = bridges
-	PutToDataSource(userConfig)
+	return config, nil
+}
+
+//get config from database
+func GetConfigFromDs() (Config, error) {
+	var config Config
+	err := json.Unmarshal(([]byte)(DataSource["network"]), &config)
+	if err != nil {
+		log.WithError(err).Error("Json unmarshall fail")
+		return Config{}, err
+	}
+	return config, nil
+}
+
+// below manipulate database's data
+func BridgeAdd(name string, dev []string, mtu int) error {
+	// 要根据数据源里存的配置的进行校验 而不是从系统中取到的配置
+	userConfig, err := GetConfigFromDs()
+	if err != nil {
+		log.WithError(err).Error("Get config from database failed")
+		return err
+	}
+
+	if err := validate(name, dev, userConfig); err != nil {
+		log.WithError(err).Error("Validate fail")
+		return err
+	}
+
+	userConfig.Bridges = append(userConfig.Bridges, Bridge{Name: name, Devs: dev, Mtu: mtu})
+
+	if err := PutToDataSource(userConfig); err != nil {
+		log.WithError(err).Error("Put data to database fail")
+		return err
+	}
+	return nil
 }
 
 func BridgeUpdate(name string, dev []string, mtu int) error { // can not modify name
@@ -189,98 +232,176 @@ func BridgeUpdate(name string, dev []string, mtu int) error { // can not modify 
 	return BridgeAdd(name, dev, mtu)
 }
 
-func BondAdd(name string, mode int, dev []string) error {
-	userConfig := GetConfigFromDs()
-	if isLinkAlreadyExists(name, userConfig) {
-		//log.Error("interface named " + name + " alerady exists")
-		return errors.New("interface named " + name + " alerady exists")
-	}
-	if hasDevBeenOccupied(dev, userConfig) {
-		//log.Error("dev has alerady been occupied")
-		return errors.New("dev has alerady been occupied")
+func BridgeDel(name string) error {
+	userConfig, err := GetConfigFromDs()
+	if err != nil {
+		log.WithError(err).Error("Get config from database failed")
+		return err
 	}
 
-	bonds := GetConfigFromDs().Bonds
-	bonds = append(bonds, Bond{Name: name, Mode: netlink.BondMode(mode), Devs: dev})
-	userConfig.Bonds = bonds
-	PutToDataSource(userConfig)
+	for i, bri := range userConfig.Bridges {
+		if bri.Name == name {
+			userConfig.Bridges = append(userConfig.Bridges[:i], userConfig.Bridges[i+1:]...)
+		}
+	}
+
+	if err := PutToDataSource(userConfig); err != nil {
+		log.WithError(err).Error("Put data to database fail")
+		return err
+	}
 	return nil
 }
 
-func BondDel(name string) {
-	userConfig := GetConfigFromDs()
-	bonds := userConfig.Bonds
-	for i, bri := range bonds {
+func BondAdd(name string, mode int, dev []string) error {
+	userConfig, err := GetConfigFromDs()
+	if err != nil {
+		log.WithError(err).Error("Get config from database failed")
+		return err
+	}
+
+	if err := validate(name, dev, userConfig); err != nil {
+		log.WithError(err).Error("Validate fail")
+		return err
+	}
+
+	userConfig.Bonds = append(userConfig.Bonds, Bond{Name: name, Mode: netlink.BondMode(mode), Devs: dev})
+
+	if err := PutToDataSource(userConfig); err != nil {
+		log.WithError(err).Error("Put data to database fail")
+		return err
+	}
+	return nil
+}
+
+func BondDel(name string) error {
+	userConfig, err := GetConfigFromDs()
+	if err != nil {
+		log.WithError(err).Error("Get config from database failed")
+		return err
+	}
+
+	for i, bri := range userConfig.Bonds {
 		if bri.Name == name {
-			bonds = append(bonds[:i], bonds[i+1:]...)
+			userConfig.Bonds = append(userConfig.Bonds[:i], userConfig.Bonds[i+1:]...)
 		}
 	}
-	userConfig.Bonds = bonds
-	PutToDataSource(userConfig)
+
+	if err := PutToDataSource(userConfig); err != nil {
+		log.WithError(err).Error("Put data to database fail")
+		return err
+	}
+	return nil
 }
 
 func BondUpdate(name string, mode int, dev []string) error { // can not modify name
-	BondDel(name)
-	return BondAdd(name, mode, dev)
-}
-
-func VlanAdd(name string, tag int, parent string) error {
-	userConfig := GetConfigFromDs()
-	if isLinkAlreadyExists(name, userConfig) {
-		//log.Error("interface named " + name + " alerady exists")
-		return errors.New("interface named " + name + " alerady exists")
+	if err := BondDel(name); err != nil {
+		log.WithError(err).Error("Bond " + name + " del fail")
+		return err
 	}
-	vlans := GetConfigFromDs().Vlans
-	vlans = append(vlans, Vlan{Name: name, Tag: tag, Parent: parent})
-	userConfig.Vlans = vlans
-	PutToDataSource(userConfig)
+	if err := BondAdd(name, mode, dev); err != nil {
+		log.WithError(err).Error("Bond " + name + " add fail")
+		return err
+	}
 	return nil
 }
 
-func VlanDel(name string) {
-	userConfig := GetConfigFromDs()
-	vlans := userConfig.Vlans
-	for i, v := range vlans {
-		if v.Name == name {
-			vlans = append(vlans[:i], vlans[i+1:]...)
-		}
+func VlanAdd(name string, tag int, parent string) error {
+	userConfig, err := GetConfigFromDs()
+	if err != nil {
+		log.WithError(err).Error("Get config from database failed")
+		return err
 	}
-	userConfig.Vlans = vlans
-	PutToDataSource(userConfig)
+
+	if isLinkAlreadyExists(name, userConfig) {
+		log.WithError(ErrNameUsed).Error("Name:" + name)
+		return ErrNameUsed
+	}
+
+	userConfig.Vlans = append(userConfig.Vlans, Vlan{Name: name, Tag: tag, Parent: parent})
+
+	if err := PutToDataSource(userConfig); err != nil {
+		log.WithError(err).Error("Put data to database fail")
+		return err
+	}
+	return nil
 }
 
 func VlanUpdate(name string, tag int, parent string) error { // can not modify name
-	VlanDel(name)
-	return VlanAdd(name, tag, parent)
+	if err := VlanDel(name); err != nil {
+		log.WithError(err).Error("Vlan " + name + " del fail")
+		return err
+	}
+	if err := VlanAdd(name, tag, parent); err != nil {
+		log.WithError(err).Error("Vlan " + name + " add fail")
+		return err
+	}
+	return nil
+}
+
+func VlanDel(name string) error {
+	userConfig, err := GetConfigFromDs()
+	if err != nil {
+		log.WithError(err).Error("Get config from database failed")
+		return err
+	}
+
+	for i, v := range userConfig.Vlans {
+		if v.Name == name {
+			userConfig.Vlans = append(userConfig.Vlans[:i], userConfig.Vlans[i+1:]...)
+		}
+	}
+
+	if err := PutToDataSource(userConfig); err != nil {
+		log.WithError(err).Error("Put data to database fail")
+		return err
+	}
+	return nil
 }
 
 func AssignIP(name string, ipNet []string) error {
 	for _, ips := range ipNet {
 		_, err := netlink.ParseAddr(ips)
 		if err != nil {
-			//log.WithError(err).Error("ip net format error, parse failed")
-			return errors.New("ip net :" + ips + "format error, parse failed")
+			log.WithError(err).Error("Parse IP failed,please check the input IP's format")
+			return err
 		}
 	}
 
-	userConfig := GetConfigFromDs()
+	userConfig, err := GetConfigFromDs()
+	if err != nil {
+		log.WithError(err).Error("Get config from database failed")
+		return err
+	}
+
+	// assign IP to devices
 	for i, d := range userConfig.Devices {
 		if d.Name == name {
 			userConfig.Devices[i].IpNets = append(userConfig.Devices[i].IpNets, ipNet...)
 		}
 	}
+
+	// assign IP to bonds
 	for i, b := range userConfig.Bonds {
 		if b.Name == name {
 			userConfig.Bonds[i].IpNets = append(userConfig.Bonds[i].IpNets, ipNet...)
 		}
 	}
-	PutToDataSource(userConfig)
+
+	if err := PutToDataSource(userConfig); err != nil {
+		log.WithError(err).Error("Put data to database fail")
+		return err
+	}
 	return nil
 }
 
-func DelIP(name string, ipNet string) {
-	userConfig := GetConfigFromDs()
+func DelIP(name string, ipNet string) error {
+	userConfig, err := GetConfigFromDs()
+	if err != nil {
+		log.WithError(err).Error("Get config from database failed")
+		return err
+	}
 
+	//del devices's IP
 	for i, d := range userConfig.Devices {
 		if d.Name == name {
 			for j, ipnet := range userConfig.Devices[i].IpNets {
@@ -291,6 +412,7 @@ func DelIP(name string, ipNet string) {
 		}
 	}
 
+	//del bonds's IP
 	for i, b := range userConfig.Bonds {
 		if b.Name == name {
 			for j, ipnet := range userConfig.Bonds[i].IpNets {
@@ -301,65 +423,27 @@ func DelIP(name string, ipNet string) {
 		}
 	}
 
-	PutToDataSource(userConfig)
-}
-
-//not thread safe
-func Apply(config Config) error {
-	if err := breakNetwork(); err != nil {
-		log.WithError(err).Error("break network failed")
+	if err := PutToDataSource(userConfig); err != nil {
+		log.WithError(err).Error("Put data to database fail")
 		return err
-	}
-
-	// assign device's ip,eg assign ip:192.168.3.3 ,mask:255.255.255.0 to eth0
-	for _, device := range config.Devices {
-		if device.Name == getAdminInterface() || device.Name == "lo" {
-			continue
-		}
-
-		if ipNets := device.IpNets; len(ipNets) > 0 {
-			for _, ipNet := range ipNets {
-				if err := setIP(device.Name, ipNet); err != nil {
-					log.WithError(err).Error("device add ip failed")
-					return err
-				}
-			}
-		}
-	}
-
-	for _, bond := range config.Bonds {
-		if err := addBond(bond.Name, bond.Devs); err != nil {
-			log.WithError(err).Error("add bond failed")
-			return err
-		}
-		// assign bond's ip,eg assign ip:192.168.3.3 ,mask:255.255.255.0 to bond0
-		if ipNets := bond.IpNets; len(ipNets) > 0 {
-			for _, ipNet := range ipNets {
-				if err := setIP(bond.Name, ipNet); err != nil {
-					log.WithError(err).Error("bond add ip failed")
-					return err
-				}
-			}
-		}
-	}
-
-	for _, vlan := range config.Vlans {
-		if err := addVlan(vlan.Name, vlan.Parent, vlan.Tag); err != nil {
-			log.WithError(err).Error("add vlan failed")
-			return err
-		}
-	}
-
-	for _, bridge := range config.Bridges {
-		if err := addBridge(bridge.Name, bridge.Devs, 1600); err != nil {
-			log.WithError(err).Error("add bridge failed")
-			return err
-		}
 	}
 	return nil
 }
 
-func hasDevBeenOccupied(devs []string, config Config) bool {
+func validate(name string, dev []string, userConfig Config) error {
+	if isLinkAlreadyExists(name, userConfig) {
+		log.WithError(ErrNameUsed).Error("Name:" + name)
+		return ErrNameUsed
+	}
+
+	if isDevsAlreadyUsed(dev, userConfig) {
+		log.WithError(ErrDevsUsed)
+		return ErrDevsUsed
+	}
+	return nil
+}
+
+func isDevsAlreadyUsed(devs []string, config Config) bool {
 	for _, dev := range devs {
 		for _, b := range config.Bonds {
 			for _, d := range b.Devs {

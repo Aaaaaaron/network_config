@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,7 +22,7 @@ func init() {
 }
 
 func TestGetConfigFromDs(t *testing.T) {
-	config := GetConfigFromDs()
+	config, _ := GetConfigFromDs()
 	assert.Equal(t, Device{Name: "eth0"}, config.Devices[0])
 	assert.Equal(t, Device{Name: "eth1"}, config.Devices[1])
 	assert.Equal(t, Device{Name: "eth2"}, config.Devices[2])
@@ -37,7 +36,7 @@ func TestGetConfigFromDs(t *testing.T) {
 
 func TestBondAdd(t *testing.T) {
 	err := BondAdd("bond1", 0, []string{"eth4"})
-	config := GetConfigFromDs()
+	config, _ := GetConfigFromDs()
 	assert.Equal(t, Bond{Name: "bond1", Devs: []string{"eth4"}}, config.Bonds[1])
 	assert.Nil(t, err)
 
@@ -50,7 +49,7 @@ func TestBondAdd(t *testing.T) {
 
 func TestBondDel(t *testing.T) {
 	BondDel("bond0")
-	config := GetConfigFromDs()
+	config, _ := GetConfigFromDs()
 	assert.NotEqual(t, Bond{Name: "bond0", Devs: []string{"eth0", "eth1"}}, config.Bonds[0])
 	assert.Equal(t, Bond{Name: "bond1", Devs: []string{"eth4"}}, config.Bonds[0])
 	assert.Equal(t, 1, len(config.Bonds))
@@ -58,7 +57,7 @@ func TestBondDel(t *testing.T) {
 
 func TestBridgeAdd(t *testing.T) {
 	err := BridgeAdd("bridge1", []string{"eth5"}, 1333)
-	config := GetConfigFromDs()
+	config, _ := GetConfigFromDs()
 	assert.Equal(t, Bridge{Name: "bridge1", Devs: []string{"eth5"}, Mtu: 1333}, config.Bridges[1])
 	assert.Nil(t, err)
 
@@ -71,7 +70,7 @@ func TestBridgeAdd(t *testing.T) {
 
 func TestBridgeDel(t *testing.T) {
 	BridgeDel("bridge0")
-	config := GetConfigFromDs()
+	config, _ := GetConfigFromDs()
 	assert.NotEqual(t, Bridge{Name: "bridge0", Devs: []string{"eth2", "eth3"}, Mtu: 1300}, config.Bridges[0])
 	assert.Equal(t, Bridge{Name: "bridge1", Devs: []string{"eth5"}, Mtu: 1333}, config.Bridges[0])
 	assert.Equal(t, 1, len(config.Bridges))
@@ -79,7 +78,7 @@ func TestBridgeDel(t *testing.T) {
 
 func TestVlanAdd(t *testing.T) {
 	err := VlanAdd("vlan1", 200, "eth1")
-	config := GetConfigFromDs()
+	config, _ := GetConfigFromDs()
 	assert.Equal(t, Vlan{Name: "vlan1", Tag: 200, Parent: "eth1"}, config.Vlans[1])
 	assert.Nil(t, err)
 
@@ -89,7 +88,7 @@ func TestVlanAdd(t *testing.T) {
 
 func TestVlanDel(t *testing.T) {
 	VlanDel("vlan0")
-	config := GetConfigFromDs()
+	config, _ := GetConfigFromDs()
 	assert.NotEqual(t, Vlan{Name: "vlan0", Tag: 100, Parent: "eth0"}, config.Vlans[0])
 	assert.Equal(t, Vlan{Name: "vlan1", Tag: 200, Parent: "eth1"}, config.Vlans[0])
 	assert.Equal(t, 1, len(config.Bonds))
@@ -99,7 +98,7 @@ func TestAssignIP(t *testing.T) {
 	addBond("bond9", []string{})
 	AssignIP("eth0", []string{"1.1.1.1/24", "2.2.2.2/24", "3.3.3.3/24"})
 	AssignIP("bond9", []string{"33.33.33.33/24"})
-	config := GetConfigFromDs()
+	config, _ := GetConfigFromDs()
 	for _, d := range config.Devices {
 		if d.Name == "eth0" {
 			assert.Equal(t, []string{"1.1.1.1/24", "2.2.2.2/24", "3.3.3.3/24"}, d.IpNets)
@@ -116,61 +115,10 @@ func TestAssignIP(t *testing.T) {
 
 func TestDelIP(t *testing.T) {
 	DelIP("eth0", "2.2.2.2/24")
-	config := GetConfigFromDs()
+	config, _ := GetConfigFromDs()
 	for _, d := range config.Devices {
 		if d.Name == "eth0" {
 			assert.Equal(t, []string{"1.1.1.1/24", "3.3.3.3/24"}, d.IpNets)
 		}
 	}
-}
-
-func TestApply(t *testing.T) {
-	breakNetwork()
-	config := GetConfigFromSys()
-	bonds := []Bond{{Name: "bond00", Devs: []string{"eth0"}}}
-	vlan := []Vlan{{Name: "eth2.300", Parent: "eth2", Tag: 300}}
-	bridge := []Bridge{{Name: "br00", Mtu: 1800, Devs: []string{"eth1", "bond00"}}}
-	config.Bonds = bonds
-	config.Vlans = vlan
-	config.Bridges = bridge
-
-	Apply(config)
-	sysConfig := GetConfigFromSys()
-	assert.Equal(t, "bond00", sysConfig.Bonds[0].Name)
-	assert.Equal(t, []string{"eth0"}, sysConfig.Bonds[0].Devs)
-
-	assert.Equal(t, "br00", sysConfig.Bridges[0].Name)
-	assert.Equal(t, []string{"eth1", "bond00"}, sysConfig.Bridges[0].Devs)
-	assert.Equal(t, 1500, sysConfig.Bridges[0].Mtu)
-
-	assert.Equal(t, "eth2.300", sysConfig.Vlans[0].Name)
-	assert.Equal(t, "eth2", sysConfig.Vlans[0].Parent)
-	assert.Equal(t, 300, sysConfig.Vlans[0].Tag)
-	breakNetwork()
-}
-
-func TestGetConfigFromSys(t *testing.T) {
-	breakNetwork()
-	printLinks(GetConfigFromSys())
-
-	fmt.Println("---down all device---")
-	downDevice()
-	printLinks(GetConfigFromSys())
-
-	fmt.Println("---del interface---")
-	delInterfaces()
-	printLinks(GetConfigFromSys())
-
-	fmt.Println("---add bridge---")
-	addBridge("testbr", []string{"eth0"}, 1600)
-	printLinks(GetConfigFromSys())
-
-	fmt.Println("---add bond---")
-	addBond("testbd", []string{"eth1"})
-	printLinks(GetConfigFromSys())
-
-	fmt.Println("---add vlan---")
-	addVlan("testvlan", "eth2", 900)
-	printLinks(GetConfigFromSys())
-	breakNetwork()
 }

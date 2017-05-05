@@ -62,39 +62,136 @@ type Vlan struct {
 	IpNets []string
 }
 
-func PutToDataSource(config Config) {
+func PutToDataSource(config Config) error {
 	data, err := json.MarshalIndent(config, "", "    ")
 	if err != nil {
-		log.Fatalf("JSON marshaling failed: %s", err)
+		log.WithError(err).Error("Put to database failed cuz convert json failed")
+		return err
 	}
-	//fmt.Printf("%s\n", data)
 	DataSource["network"] = string(data)
+	return nil
+}
+
+
+//not thread safe
+func Apply(config Config) error {
+	if err := breakNetwork(); err != nil {
+		log.WithError(err).Error("Break network failed")
+		return err
+	}
+
+	if err := setDevice(config.Devices); err != nil {
+		log.WithError(err).Error("Set device fail")
+		return err
+	}
+
+	if err := buildBond(config.Bonds); err != nil {
+		log.WithError(err).Error("Build bond fail")
+		return err
+	}
+
+	if err := buildVlan(config.Vlans); err != nil {
+		log.WithError(err).Error("Build vlan fail")
+		return err
+	}
+
+	if err := buildBridge(config.Bridges); err != nil {
+		log.WithError(err).Error("Build bridge fail")
+		return err
+	}
+
+	return nil
+}
+
+func setDevice(devices []Device) error {
+	// assign device's ip,eg assign ip:192.168.3.3 ,mask:255.255.255.0 to eth0
+	for _, device := range devices {
+		// ignore admin interface and lo
+		if device.Name == getAdminInterface() || device.Name == "lo" {
+			continue
+		}
+
+		// set device's IP
+		if ipNets := device.IpNets; len(ipNets) > 0 {
+			for _, ipNet := range ipNets {
+				if err := setIP(device.Name, ipNet); err != nil {
+					log.WithError(err).Error("Device " + device.Name + "add ip failed")
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func buildBond(bonds []Bond) error {
+	for _, bond := range bonds {
+		if err := addBond(bond.Name, bond.Devs); err != nil {
+			log.WithError(err).Error("add bond failed")
+			return err
+		}
+		// assign bond's ip,eg assign ip:192.168.3.3 ,mask:255.255.255.0 to bond0
+		if ipNets := bond.IpNets; len(ipNets) > 0 {
+			for _, ipNet := range ipNets {
+				if err := setIP(bond.Name, ipNet); err != nil {
+					log.WithError(err).Error("bond add ip failed")
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func buildVlan(vlans []Vlan) error {
+	for _, vlan := range vlans {
+		if err := addVlan(vlan.Name, vlan.Parent, vlan.Tag); err != nil {
+			log.WithError(err).Error("add vlan failed")
+			return err
+		}
+	}
+	return nil
+}
+
+func buildBridge(bridges []Bridge) error {
+	for _, bridge := range bridges {
+		if err := addBridge(bridge.Name, bridge.Devs, 1600); err != nil {
+			log.WithError(err).Error("add bridge failed")
+			return err
+		}
+	}
+	return nil
 }
 
 func breakNetwork() error {
 	if err := downDevice(); err != nil {
-		log.WithError(err).Error("down device fail")
+		log.WithError(err).Error("Break network failed, down device fail")
 		return err
 	}
 
 	if err := delInterfaces(); err != nil {
-		log.WithError(err).Error("del bond/bridge/vlan fail")
+		log.WithError(err).Error("Break network failed, del bond/bridge/vlan fail")
 		return err
 	}
 
 	if err := setNoIP(); err != nil {
-		log.WithError(err).Error("clear ip failed")
+		log.WithError(err).Error("Break network failed, clear ip failed")
 		return err
 	}
 	return nil
 }
 
-func grantConfig(link netlink.Link, devMap map[int][]string, config *Config) {
-	addrs, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
+func grantConfig(link netlink.Link, devMap map[int][]string, config *Config) error {
 	var ipNets []string
+	addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+	if err != nil {
+		log.WithError(err).Error("Get config from database failed")
+		return err
+	}
 	for _, addr := range addrs {
 		ipNets = append(ipNets, addr.IPNet.String())
 	}
+
 	switch link.Type() {
 	case DEVICE:
 		if deviceLink, ok := link.(*netlink.Device); ok {
@@ -114,10 +211,11 @@ func grantConfig(link netlink.Link, devMap map[int][]string, config *Config) {
 			config.Bridges = append(config.Bridges, Bridge{bridgeLink.Index, bridgeLink.Name, devMap[link.Attrs().Index], ipNets, bridgeLink.MTU, ""})
 		}
 	}
+	return nil
 }
 
 // get the interface's dev,eg: 5:eth0 eth1,5 is the bond0's index
-func getDevMap(links []netlink.Link) map[int][]string {
+func getSlaveList(links []netlink.Link) map[int][]string {
 	m := make(map[int][]string)
 	for _, link := range links {
 		if masterIndex := link.Attrs().MasterIndex; masterIndex != 0 {
@@ -127,24 +225,22 @@ func getDevMap(links []netlink.Link) map[int][]string {
 	return m
 }
 
-func getLinkList() []netlink.Link { // link represent all network interface
-	linkList, err := netlink.LinkList()
-	if err != nil {
-		log.WithError(err).Error("get link list from netlink failed")
-	}
-	return linkList
-}
-
 func getHostId() string {
 	return "1"
 }
 
 // del bond, vlan, bridge, if exists
 func delInterfaces() error {
-	links := getLinkList()
+	links, err := netlink.LinkList()
+	if err != nil {
+		log.WithError(err).Error(" Get link list failed")
+		return err
+	}
+
 	for _, link := range links {
 		if link.Type() == BOND || link.Type() == VLAN || link.Type() == BRIDGE {
 			if err := netlink.LinkDel(link); err != nil {
+				log.WithError(err).Error(" Del " + link.Attrs().Name + " link failed")
 				return err
 			}
 		}
@@ -152,24 +248,36 @@ func delInterfaces() error {
 	return nil
 }
 
-func upAllInterfaces() error {
-	links := getLinkList()
-	for _, link := range links {
-		if err := netlink.LinkSetUp(link); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// down eth0,eth1 etc.
+// down devices like eth0,eth1 etc.
 func downDevice() error {
-	links := getLinkList()
+	links, err := netlink.LinkList()
+	if err != nil {
+		log.WithError(err).Error("Get link list failed")
+		return err
+	}
+
 	for _, link := range links {
 		if link.Type() == DEVICE && link.Attrs().Name != getAdminInterface() && link.Attrs().Name != "lo" {
 			if err := netlink.LinkSetDown(link); err != nil {
+				log.WithError(err).Error("Down " + link.Attrs().Name + " link failed")
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func upAllLinks() error {
+	links, err := netlink.LinkList()
+	if err != nil {
+		log.WithError(err).Error("Get link list failed")
+		return err
+	}
+
+	for _, link := range links {
+		if err := netlink.LinkSetUp(link); err != nil {
+			log.WithError(err).Error("Up " + link.Attrs().Name + " link failed")
+			return err
 		}
 	}
 	return nil
@@ -182,9 +290,11 @@ func getAdminInterface() string {
 func addBond(masterName string, dev []string) error {
 	bond := netlink.NewLinkBond(netlink.LinkAttrs{Name: masterName})
 	if err := netlink.LinkAdd(bond); err != nil {
+		log.WithError(err).Error("Add bond " + masterName + " fail ")
 		return err
 	}
-	if err := setMaster(masterName, dev); err != nil {
+	if err := addSlave(masterName, dev); err != nil {
+		log.WithError(err).Error("Bond " + masterName + " add slave fail")
 		return err
 	}
 	return nil
@@ -193,38 +303,54 @@ func addBond(masterName string, dev []string) error {
 func addBridge(masterName string, dev []string, mtu int) error {
 	bri := &netlink.Bridge{netlink.LinkAttrs{Name: masterName, MTU: mtu}}
 	if err := netlink.LinkAdd(bri); err != nil {
+		log.WithError(err).Error("Add bridge " + masterName + " fail ")
 		return err
 	}
-	if err := setMaster(masterName, dev); err != nil {
+	if err := addSlave(masterName, dev); err != nil {
+		log.WithError(err).Error("Bridge " + masterName + " add slave fail")
 		return err
 	}
 	return nil
 }
 
 func addVlan(name string, parent string, id int) error {
-	parentIndex := getIndexByName(parent)
+	parentIndex, err := getIndexByName(parent)
+	if err != nil {
+		log.WithError(err).Error("get parent device " + parent + "'s index fail ")
+		return err
+	}
+
 	vlan := &netlink.Vlan{netlink.LinkAttrs{Name: name, ParentIndex: parentIndex}, id}
 	if err := netlink.LinkAdd(vlan); err != nil {
+		log.WithError(err).Error("Add vlan " + name + " fail ")
 		return err
 	}
 	return nil
 }
 
-func getIndexByName(name string) int {
+func getIndexByName(name string) (int, error) {
 	link, err := netlink.LinkByName(name)
 	if err != nil {
-		log.Fatal(err)
+		log.WithError(err).Error("link set master failed.")
+		return -1, err
 	}
-	return link.Attrs().Index
+	return link.Attrs().Index, nil
 }
 
-func setMaster(masterName string, dev []string) error {
+func addSlave(masterName string, dev []string) error {
 	for _, devName := range dev {
 		slave, err := netlink.LinkByName(devName)
 		if err != nil {
-			log.Fatal(err)
+			log.WithError(err).Error("Get slave link " + slave.Attrs().Name + " failed")
+			return err
 		}
-		masterID := getIndexByName(masterName)
+
+		masterID, err := getIndexByName(masterName)
+		if err != nil {
+			log.WithError(err).Error("get master " + masterName + "'s index fail ")
+			return err
+		}
+
 		if err := netlink.LinkSetMasterByIndex(slave, masterID); err != nil {
 			log.WithError(err).Error("link set master failed.")
 			return err
@@ -235,27 +361,47 @@ func setMaster(masterName string, dev []string) error {
 
 // only can assign ip to devices and bonds
 func setIP(name string, ipNet string) error {
-	addr, _ := netlink.ParseAddr(ipNet)
-	link, _ := netlink.LinkByName(name)
+	addr, err := netlink.ParseAddr(ipNet)
+	if err != nil {
+		log.WithError(err).Error("parse addr " + ipNet + " failed")
+		return err
+	}
+
+	link, err := netlink.LinkByName(name)
+	if err != nil {
+		log.WithError(err).Error("Get link " + name + " failed")
+		return err
+	}
+
 	if err := netlink.AddrAdd(link, addr); err != nil {
-		log.WithError(err).Error("link set ip failed.")
+		log.WithError(err).Error("link " + name + " set ip" + ipNet + " failed.")
 		return err
 	}
 	return nil
 }
 
 func setNoIP() error {
-	links := getLinkList()
+	links, err := netlink.LinkList()
+	if err != nil {
+		log.WithError(err).Error("Get link list failed")
+		return err
+	}
+
 	for _, link := range links {
 		if link.Attrs().Name == getAdminInterface() || link.Attrs().Name == "lo" {
 			continue
 		}
 
-		addrs, _ := netlink.AddrList(link, netlink.FAMILY_ALL)
+		addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+		if err != nil {
+			log.WithError(err).Error("Get link " + link.Attrs().Name + "'s address  failed")
+			return err
+		}
+
 		for _, addr := range addrs {
 			err := netlink.AddrDel(link, &addr)
 			if err != nil {
-				//log.WithError(err).Error("link clear ip failed.")
+				log.WithError(err).Error(" Link " + link.Attrs().Name + "clear ip failed.")
 				return err
 			}
 		}
