@@ -86,18 +86,6 @@ func config(resp http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 	resp.Write(ret)
 }
 
-//func dsconfig(resp http.ResponseWriter, req *http.Request) {
-//	req.ParseForm()
-//	resp.Header().Set("Content-Type", "application/json")
-//	userConfig, err := GetConfigFromDs()
-//	if err != nil {
-//		log.WithError(err).Error("Get config from database failed")
-//	}
-//
-//	r, _ := json.MarshalIndent(userConfig, "", "\t")
-//	resp.Write(r)
-//}
-
 func apply(resp http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 	log.Info("应用网络配置")
 	var rm ResponseMessage

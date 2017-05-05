@@ -1,11 +1,65 @@
-# 已完成
-1. 从系统返回当前设置 
-2. 拆除bond/bridge/vlan
-3. 创建bond/bridge/vlan
-4. 上面三点的单元测试
-5. 修改数据库中的配置(以下不区分数据库,数据源)
-// todo route部分,赋值ip部分,api server的单元测试
+# Response
+```
+{
+  "result": {
+      请求的资源
+  },
+  "success": true|false,
+  "message": "error message",
+  "error_code": 错误码
+}
+```
 
+# API
+1. GET network/init 初始化网络
+2. GET network/config 获取数据库中的网络配置
+3. GET network/apply 应用数据库中的网络配置到系统
+
+## Bond部分
+1. POST network/bond
+
+    Params:
+
+        name
+        mode
+        dev
+
+
+2. DELETE network/bond/name
+Params:
+
+3. PUT network/bond
+Params:
+name
+mode
+dev
+
+# Bridge部分
+POST network/bridge
+Params:
+
+DELETE network/bridge/name
+Params:
+
+PUT network/bridge
+Params:
+
+# Vlan部分
+POST network/vlan
+Params:
+
+DELETE network/vlan/name
+Params:
+
+PUT network/vlan
+Params:
+
+# IP部分
+POST network/ip
+Params:
+
+DELETE network/ip
+Params:
 
 主要代码在src/interface.go,src/api_server.go
 
