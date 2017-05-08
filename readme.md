@@ -2,63 +2,87 @@
 ```
 {
   "result": {
-      请求的资源
+      请求的资源,为空则不显示
   },
   "success": true|false,
-  "message": "error message",
-  "error_code": 错误码
+  "message": "error or success message",
+  "code": 错误码
 }
 ```
 
 # API
-1. GET network/init 初始化网络
-2. GET network/config 获取数据库中的网络配置
-3. GET network/apply 应用数据库中的网络配置到系统
+1. GET /network/config 获取数据库中的网络配置
+    - Response
+           
+          200:获取数据库配置成功
+          500:获取数据库配置失败
+          
+2. GET /network/init 初始化网络,删除所有的bonds ,bridges, vlans,只开启一个管理口
+3. GET /network/apply 应用数据库中的网络配置到系统
 
 ## Bond部分
-1. POST network/bond
+1. POST /network/bond 新增Bond
 
-    Params:
-
-        name
-        mode
-        dev
-
-
-2. DELETE network/bond/name
+    - Params:
+    
+          name: Bond的名字;
+          mode: Bond的模式,取值为0~7,默认是0:
+                    0:BALANCE_RR
+                    1:ACTIVE_BACKUP
+                    2:BALANCE_XOR
+                    3:BROADCAST
+                    4:802_3AD
+                    5:BALANCE_TLB
+                    6:BALANCE_ALB;
+          dev: 组成Bond的接口,用方括号括起,多个接口用逗号隔开;
+    - Example
+    
+          {"name":"bond0", "mode":"4", "devs": ["eth00","eth11"]}
+          {"name":"bond1", "mode":"0", "devs": ["eth3"]}
+          
+    - Response
+           
+          201:在数据库中创建bond成功
+          500:在数据库中创建bond失败,可能的原因有
+              1. 从数据库中获取配置失败
+              2. 用户输入校验未通过(name或者dev被占用)
+              3. 把配置放入数据库失败
+          具体的失败原因在响应的message字段表示.
+          
+2. DELETE /network/bond/name
 Params:
 
-3. PUT network/bond
+3. PUT /network/bond
 Params:
 name
 mode
 dev
 
 # Bridge部分
-POST network/bridge
+POST /network/bridge
 Params:
 
-DELETE network/bridge/name
+DELETE /network/bridge/name
 Params:
 
-PUT network/bridge
+PUT /network/bridge
 Params:
 
 # Vlan部分
-POST network/vlan
+POST /network/vlan
 Params:
 
-DELETE network/vlan/name
+DELETE /network/vlan/name
 Params:
 
-PUT network/vlan
+PUT /network/vlan
 Params:
 
 # IP部分
-POST network/ip
+POST /network/ip
 Params:
 
-DELETE network/ip
+DELETE /network/ip
 Params:
 
 主要代码在src/interface.go,src/api_server.go
