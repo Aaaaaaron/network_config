@@ -40,7 +40,7 @@ type Device struct {
 type Bond struct {
 	Index  int
 	Name   string
-	Mode   netlink.BondMode
+	Mode   int
 	Devs   []string
 	IpNets []string
 }
@@ -71,7 +71,6 @@ func PutToDataSource(config Config) error {
 	DataSource["network"] = string(data)
 	return nil
 }
-
 
 //not thread safe
 func Apply(config Config) error {
@@ -126,7 +125,7 @@ func setDevice(devices []Device) error {
 
 func buildBond(bonds []Bond) error {
 	for _, bond := range bonds {
-		if err := addBond(bond.Name, bond.Devs); err != nil {
+		if err := addBond(bond.Name, bond.Mode, bond.Devs); err != nil {
 			log.WithError(err).Error("add bond failed")
 			return err
 		}
@@ -199,7 +198,7 @@ func grantConfig(link netlink.Link, devMap map[int][]string, config *Config) err
 		}
 	case BOND:
 		if bondLink, ok := link.(*netlink.Bond); ok {
-			config.Bonds = append(config.Bonds, Bond{bondLink.Index, bondLink.Name, bondLink.Mode, devMap[link.Attrs().Index], ipNets})
+			config.Bonds = append(config.Bonds, Bond{bondLink.Index, bondLink.Name, int(bondLink.Mode), devMap[link.Attrs().Index], ipNets})
 		}
 	case VLAN:
 		if vlanLink, ok := link.(*netlink.Vlan); ok {
@@ -287,8 +286,9 @@ func getAdminInterface() string {
 	return "eth3"
 }
 
-func addBond(masterName string, dev []string) error {
+func addBond(masterName string, mode int, dev []string) error {
 	bond := netlink.NewLinkBond(netlink.LinkAttrs{Name: masterName})
+	bond.Mode = netlink.BondMode(mode)
 	if err := netlink.LinkAdd(bond); err != nil {
 		log.WithError(err).Error("Add bond " + masterName + " fail ")
 		return err

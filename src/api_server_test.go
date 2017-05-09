@@ -95,7 +95,7 @@ func TestVlanDel(t *testing.T) {
 }
 
 func TestAssignIP(t *testing.T) {
-	addBond("bond9", []string{})
+	BondAdd("bond9", 0, []string{})
 	AssignIP("eth0", []string{"1.1.1.1/24", "2.2.2.2/24", "3.3.3.3/24"})
 	AssignIP("bond9", []string{"33.33.33.33/24"})
 	config, _ := GetConfigFromDs()

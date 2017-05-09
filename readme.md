@@ -1,98 +1,3 @@
-# Response
-```
-{
-  "result": {
-      请求的资源,为空则不显示
-  },
-  "success": true|false,
-  "message": "error or success message",
-  "code": 错误码
-}
-```
-
-# API
-1. GET /network/config 获取数据库中的网络配置
-    - Response
-           
-          200:获取数据库配置成功
-          500:获取数据库配置失败
-          
-2. GET /network/init 初始化网络,删除所有的bonds ,bridges, vlans,只开启一个管理口
-3. GET /network/apply 应用数据库中的网络配置到系统
-
-## Bond部分
-1. POST /network/bond 新增Bond
-
-    - Params:
-    
-          name: Bond的名字;
-          mode: Bond的模式,取值为0~7,默认是0:
-                    0:BALANCE_RR
-                    1:ACTIVE_BACKUP
-                    2:BALANCE_XOR
-                    3:BROADCAST
-                    4:802_3AD
-                    5:BALANCE_TLB
-                    6:BALANCE_ALB;
-          dev: 组成Bond的接口,用方括号括起,多个接口用逗号隔开;
-    - Example
-    
-          {"name":"bond0", "mode":"4", "devs": ["eth00","eth11"]}
-          {"name":"bond1", "mode":"0", "devs": ["eth3"]}
-          
-    - Response
-           
-          201:在数据库中创建bond成功
-          500:在数据库中创建bond失败,可能的原因有
-              1. 从数据库中获取配置失败
-              2. 用户输入校验未通过(name或者dev被占用)
-              3. 把配置放入数据库失败
-          具体的失败原因在响应的message字段表示.
-          
-2. DELETE /network/bond/name
-Params:
-
-3. PUT /network/bond
-Params:
-name
-mode
-dev
-
-# Bridge部分
-POST /network/bridge
-Params:
-
-DELETE /network/bridge/name
-Params:
-
-PUT /network/bridge
-Params:
-
-# Vlan部分
-POST /network/vlan
-Params:
-
-DELETE /network/vlan/name
-Params:
-
-PUT /network/vlan
-Params:
-
-# IP部分
-POST /network/ip
-Params:
-
-DELETE /network/ip
-Params:
-
-主要代码在src/interface.go,src/api_server.go
-
-测试代码在src/interface_test.go
-
-项目目录:/root/work/network_config
-
-运行测试:sh /root/work/network_config/bin/test.sh
-***
 # 一.用户正常修改
 1. 用户修改配置,api server收到具体的修改请求,比如/network/BridgeAdd
 2. api server校验配置,比如名字是否重复,master是否重复
@@ -118,52 +23,221 @@ Params:
 3. api sever主要负责**用户修改**到**数据源**,apply是负责**数据源**到**系统**
 
 # 四.API
-Apply(config Config)
+1. GET /network/config 获取数据库中的网络配置
+    - Example
+    
+          curl -XGET "http://127.0.0.1:9090/config"
+          
+    - Response
+           
+         ```json
+          {
+            "result": {
+              "HostId": "",
+              "Devices": [
+                {
+                  "Index": 1,
+                  "Name": "lo",
+                  "IpNets": [
+                    "127.0.0.1/8",
+                    "::1/128"
+                  ]
+                },
+                {
+                  "Index": 2,
+                  "Name": "eth0",
+                  "IpNets": null
+                },
+                {
+                  "Index": 3,
+                  "Name": "eth1",
+                  "IpNets": null
+                },
+                {
+                  "Index": 4,
+                  "Name": "eth2",
+                  "IpNets": null
+                },
+                {
+                  "Index": 5,
+                  "Name": "eth3",
+                  "IpNets": [
+                    "192.168.26.61/24",
+                    "fe80::5a58:c0ff:fea8:1a3d/64"
+                  ]
+                }
+              ],
+              "Bonds": null,
+              "Bridges": null,
+              "Vlans": null
+            },
+            "status": true,
+            "message": "获取数据库网络配置成功",
+            "code": 200
+          }
+        ```
+          
+2. GET /network/init 初始化网络,删除所有的bonds ,bridges, vlans.只开启一个管理口,其他口都是关闭状态.
+    - Example
+    
+          curl -XGET "http://127.0.0.1:9090/init"
+          
+    - Response
+           
+         ```json
+          {
+          	"status": true,
+          	"message": "初始化网络配置成功",
+          	"code": 200
+          }
+        ```
+        
+3. GET /network/apply 应用数据库中的网络配置到系统
+    - Example
+    
+          curl -XGET "http://127.0.0.1:9090/apply"
+          
+    - Response
+           
+        ```json
+        {
+        	"result": {
+        		"HostId": "",
+        		"Devices": [
+        			{
+        				"Index": 1,
+        				"Name": "lo",
+        				"IpNets": [
+        					"127.0.0.1/8",
+        					"::1/128"
+        				]
+        			},
+        			{
+        				"Index": 2,
+        				"Name": "eth0",
+        				"IpNets": null
+        			},
+        			{
+        				"Index": 3,
+        				"Name": "eth1",
+        				"IpNets": null
+        			},
+        			{
+        				"Index": 4,
+        				"Name": "eth2",
+        				"IpNets": null
+        			},
+        			{
+        				"Index": 5,
+        				"Name": "eth3",
+        				"IpNets": [
+        					"192.168.26.61/24",
+        					"fe80::5a58:c0ff:fea8:1a3d/64"
+        				]
+        			}
+        		],
+        		"Bonds": null,
+        		"Bridges": null,
+        		"Vlans": null
+        	},
+        	"status": true,
+        	"message": "应用网络配置成功",
+        	"code": 200
+        }
+        ```
+        
+## Bond部分
+1. POST /network/bond 新增Bond
 
-**以下所有API都是修改数据源中的配置**
-BridgeAdd(name string, dev []string, mtu int)
+    - Params:
+    
+          name: Bond的名字;
+          mode: Bond的模式,取值为0~7,默认是0:
+                    0:BALANCE_RR
+                    1:ACTIVE_BACKUP
+                    2:BALANCE_XOR
+                    3:BROADCAST
+                    4:802_3AD
+                    5:BALANCE_TLB
+                    6:BALANCE_ALB;
+          dev: 组成Bond的接口,用方括号括起,多个接口用逗号隔开;
+    - Example
+    
+          {"name":"bond0", "mode":"4", "devs": ["eth0","eth1"]}
+          {"name":"bond1", "mode":"0", "devs": ["eth3"]}
+          
+    - Response
+          
+        添加成功 
+        ```json
+        {
+          "status": true,
+          "message": "Bond添加成功",
+          "code": 201
+        }
+       ```
+       
+       添加失败
+       ```json
+       {
+         "status": false,
+         "message": "Bond添加失败.Interface name alerady exists",
+         "code": 500
+       }
+       ```
+       
+          201:在数据库中创建bond成功
+          500:在数据库中创建bond失败,可能的原因有
+              1. 从数据库中获取配置失败
+              2. 用户输入校验未通过(name或者dev被占用)
+              3. 把配置放入数据库失败
+          具体的失败原因在响应的message字段表示.
+          
+2. DELETE /network/bond/name
+Params:
 
-BridgeUpdate(name string, dev []string, mtu int) // can not modify name
+3. PUT /network/bond
+Params:
+name
+mode
+dev
 
-BridgeDel(name string)
+## Bridge部分
+POST /network/bridge
+Params:
 
-BondAdd(name string, mode int, dev []string)
+DELETE /network/bridge/name
+Params:
 
-BondUpdate(name string, mode int, dev []string) // can not modify name
+PUT /network/bridge
+Params:
 
-BondDel(name string)
+## Vlan部分
+POST /network/vlan
+Params:
 
-VlanAdd(name string, tag int, parent string)
+DELETE /network/vlan/name
+Params:
 
-VlanUpdate( name string, tag int, parent string) // can not modify name
+PUT /network/vlan
+Params:
 
-VlanDel(name string)
+## IP部分
+POST /network/ip
+Params:
 
-AssignIP(name string, ip string, mask string)
+DELETE /network/ip
+Params:
 
-DelIP(name string)
+主要代码在src/interface.go,src/api_server.go
+
+测试代码在src/interface_test.go
+
+项目目录:/root/work/network_config
+
+运行测试:sh /root/work/network_config/bin/test.sh
 
 # 五.相关设置json
-配置json
-```
-{
-    "hostId":"",//集群中的哪台waf
-    "config": [
-        {
-            "bridge": [
-                {"name":"br1", "dev":"eth0 eth1", "mtu":1500, "stp":"off",[addr{"IP":"1.1.1.1", "Mask":"ffffff00"}]},
-                {"name":"br2", "dev":"eth2 eth3", "mtu":1500, "stp":"off",[addr{"IP":"1.1.1.2", "Mask":"ffffff00"}]}        
-            ],
-            "bond": [
-                {"name":"bond1", "dev":"eth4", "mode":"1",[addr{"IP":"1.1.1.3", "Mask":"ffffff00"}]}
-            ],
-            "vlan" :[
-                {"name":"eth0.100", "parent":"eth5", "tag":"110",[addr{"IP":"1.1.1.4", "Mask":"ffffff00"}]}
-            ]
-        }
-    ]
-}
-```
 
 ## 结构体
 ```

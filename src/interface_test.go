@@ -21,11 +21,13 @@ func TestGetDevMap(t *testing.T) {
 
 func TestAddBond(t *testing.T) {
 	breakNetwork()
-	addBond("bond0", []string{"eth1"})
+	addBond("bond0", 4, []string{"eth1"})
 	sysConfig, _ := GetConfigFromSys()
 	bond := sysConfig.Bonds[0]
 	assert.Equal(t, "bond0", bond.Name)
 	assert.Equal(t, []string{"eth1"}, bond.Devs)
+	assert.Equal(t, 4, int(bond.Mode))
+
 	breakNetwork()
 }
 
@@ -55,7 +57,7 @@ func TestSetIP(t *testing.T) {
 	ip1 := "1.1.1.1/24"
 	ip2 := "3.3.3.3/24"
 	breakNetwork()
-	addBond("bond0", []string{"eth0", "eth1"})
+	addBond("bond0", 3, []string{"eth0", "eth1"})
 	setIP("eth2", ip1)
 	setIP("bond0", ip2)
 	sysConfig, _ := GetConfigFromSys()

@@ -32,24 +32,24 @@ type ResponseMessage struct {
 
 func main() {
 	router := httprouter.New()
-	router.GET("/init", initNetwork)
-	router.GET("/config", config)
-	router.GET("/apply", apply)
+	router.GET("/network/init", initNetwork)
+	router.GET("/network/config", config)
+	router.GET("/network/apply", apply)
 
-	router.POST("/bond/", bondAdd)
-	router.DELETE("/bond/:name", bondDel)
-	router.PUT("/bond", bondUpdate)
+	router.POST("/network/bond/", bondAdd)
+	router.DELETE("/network/bond/:name", bondDel)
+	router.PUT("/network/bond", bondUpdate)
 
-	router.POST("/bridge", briAdd)
-	router.DELETE("/bridge/:name", briDel)
-	router.PUT("/bridge", briUpdate)
+	router.POST("/network/bridge", briAdd)
+	router.DELETE("/network/bridge/:name", briDel)
+	router.PUT("/network/bridge", briUpdate)
 
-	router.POST("/vlan", vlanAdd)
-	router.DELETE("/vlan/:name", vlanDel)
-	router.PUT("/vlan", vlanUpdate)
+	router.POST("/network/vlan", vlanAdd)
+	router.DELETE("/network/vlan/:name", vlanDel)
+	router.PUT("/network/vlan", vlanUpdate)
 
-	router.POST("/ip", ipAdd)
-	router.DELETE("/ip", ipDel)
+	router.POST("/network/ip", ipAdd)
+	router.DELETE("/network/ip", ipDel)
 
 	log.Info("服务启动")
 	err := http.ListenAndServe(":9090", router) //设置监听的端口
@@ -77,9 +77,9 @@ func config(resp http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 	resp.Header().Set("Content-Type", "application/json")
 	userConfig, err := GetConfigFromDs()
 	if err != nil {
-		rm = ResponseMessage{Status: false, Message: "获取数据库配置失败." + err.Error(), Code: http.StatusInternalServerError}
+		rm = ResponseMessage{Status: false, Message: "获取数据库网络配置配置失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
-		rm = ResponseMessage{Result: userConfig, Status: true, Message: "初始化网络配置成功", Code: http.StatusOK}
+		rm = ResponseMessage{Result: userConfig, Status: true, Message: "获取数据库网络配置成功", Code: http.StatusOK}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
 	resp.Write(ret)
@@ -95,9 +95,9 @@ func apply(resp http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 	} else if err := Apply(userConfig); err != nil {
 		rm = ResponseMessage{Status: false, Message: "应用网络配置失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
-		//sysConfig, _ := GetConfigFromSys()
-		//r, _ := json.MarshalIndent(sysConfig, "", "\t")
-		rm = ResponseMessage{Result: userConfig, Status: true, Message: "应用网络配置成功", Code: http.StatusOK}
+		sysConfig, _ := GetConfigFromSys()
+		r, _ := json.MarshalIndent(sysConfig, "", "\t")
+		rm = ResponseMessage{Result: r, Status: true, Message: "应用网络配置成功", Code: http.StatusOK}
 	}
 
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -114,7 +114,7 @@ func bondAdd(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) 
 
 	log.WithField("Bond", Bond{Name: bond.Name, Mode: bond.Mode, Devs: bond.Devs}).Info("添加Bond")
 
-	if err := BondAdd(bond.Name, int(bond.Mode), bond.Devs); err != nil {
+	if err := BondAdd(bond.Name, bond.Mode, bond.Devs); err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bond添加失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
 		rm = ResponseMessage{Status: true, Message: "Bond添加成功", Code: http.StatusCreated}
@@ -409,7 +409,7 @@ func BondAdd(name string, mode int, dev []string) error {
 		return err
 	}
 
-	userConfig.Bonds = append(userConfig.Bonds, Bond{Name: name, Mode: netlink.BondMode(mode), Devs: dev})
+	userConfig.Bonds = append(userConfig.Bonds, Bond{Name: name, Mode: mode, Devs: dev})
 
 	if err := PutToDataSource(userConfig); err != nil {
 		log.WithError(err).Error("Put data to database fail")
