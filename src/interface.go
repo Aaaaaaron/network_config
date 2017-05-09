@@ -301,7 +301,7 @@ func addBond(masterName string, mode int, dev []string) error {
 }
 
 func addBridge(masterName string, dev []string, mtu int) error {
-	bri := &netlink.Bridge{netlink.LinkAttrs{Name: masterName, MTU: mtu}}
+	bri := &netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: masterName, MTU: mtu}}
 	if err := netlink.LinkAdd(bri); err != nil {
 		log.WithError(err).Error("Add bridge " + masterName + " fail ")
 		return err
@@ -320,7 +320,7 @@ func addVlan(name string, parent string, id int) error {
 		return err
 	}
 
-	vlan := &netlink.Vlan{netlink.LinkAttrs{Name: name, ParentIndex: parentIndex}, id}
+	vlan := &netlink.Vlan{LinkAttrs: netlink.LinkAttrs{Name: name, ParentIndex: parentIndex}, VlanId: id}
 	if err := netlink.LinkAdd(vlan); err != nil {
 		log.WithError(err).Error("Add vlan " + name + " fail ")
 		return err
