@@ -103,7 +103,7 @@ func Apply(config Config) error {
 }
 
 func setDevice(devices []Device) error {
-	// assign device's ip,eg assign ip:192.168.3.3 ,mask:255.255.255.0 to eth0
+	// assign device's Ip,eg assign Ip:192.168.3.3 ,mask:255.255.255.0 to eth0
 	for _, device := range devices {
 		// ignore admin interface and lo
 		if device.Name == getAdminInterface() || device.Name == "lo" {
@@ -114,7 +114,7 @@ func setDevice(devices []Device) error {
 		if ipNets := device.IpNets; len(ipNets) > 0 {
 			for _, ipNet := range ipNets {
 				if err := setIP(device.Name, ipNet); err != nil {
-					log.WithError(err).Error("Device " + device.Name + "add ip failed")
+					log.WithError(err).Error("Device " + device.Name + "add Ip failed")
 					return err
 				}
 			}
@@ -129,11 +129,11 @@ func buildBond(bonds []Bond) error {
 			log.WithError(err).Error("add bond failed")
 			return err
 		}
-		// assign bond's ip,eg assign ip:192.168.3.3 ,mask:255.255.255.0 to bond0
+		// assign bond's Ip,eg assign Ip:192.168.3.3 ,mask:255.255.255.0 to bond0
 		if ipNets := bond.IpNets; len(ipNets) > 0 {
 			for _, ipNet := range ipNets {
 				if err := setIP(bond.Name, ipNet); err != nil {
-					log.WithError(err).Error("bond add ip failed")
+					log.WithError(err).Error("bond add Ip failed")
 					return err
 				}
 			}
@@ -174,7 +174,7 @@ func breakNetwork() error {
 	}
 
 	if err := setNoIP(); err != nil {
-		log.WithError(err).Error("Break network failed, clear ip failed")
+		log.WithError(err).Error("Break network failed, clear Ip failed")
 		return err
 	}
 	return nil
@@ -359,7 +359,7 @@ func addSlave(masterName string, dev []string) error {
 	return nil
 }
 
-// only can assign ip to devices and bonds
+// only can assign Ip to devices and bonds
 func setIP(name string, ipNet string) error {
 	addr, err := netlink.ParseAddr(ipNet)
 	if err != nil {
@@ -374,7 +374,7 @@ func setIP(name string, ipNet string) error {
 	}
 
 	if err := netlink.AddrAdd(link, addr); err != nil {
-		log.WithError(err).Error("link " + name + " set ip" + ipNet + " failed.")
+		log.WithError(err).Error("link " + name + " set Ip" + ipNet + " failed.")
 		return err
 	}
 	return nil
@@ -401,7 +401,7 @@ func setNoIP() error {
 		for _, addr := range addrs {
 			err := netlink.AddrDel(link, &addr)
 			if err != nil {
-				log.WithError(err).Error(" Link " + link.Attrs().Name + "clear ip failed.")
+				log.WithError(err).Error(" Link " + link.Attrs().Name + "clear Ip failed.")
 				return err
 			}
 		}

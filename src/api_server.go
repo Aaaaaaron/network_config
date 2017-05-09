@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	ErrNameUsed = errors.New("Interface name alerady exists")
+	ErrNameUsed = errors.New("Interface Name alerady exists")
 	ErrDevsUsed = errors.New("Devs has alerady been occupied")
 )
 
@@ -36,20 +36,20 @@ func main() {
 	router.GET("/network/config", config)
 	router.GET("/network/apply", apply)
 
-	router.POST("/network/bond/", bondAdd)
-	router.DELETE("/network/bond/:name", bondDel)
-	router.PUT("/network/bond", bondUpdate)
+	router.POST("/network/bond/", bondAdd) // slave只可以从有的里面去
+	router.DELETE("/network/bond/:Name", bondDel) // todo 没有的name del 显示 失败
+	router.PUT("/network/bond", bondUpdate) // todo 同上
 
 	router.POST("/network/bridge", briAdd)
-	router.DELETE("/network/bridge/:name", briDel)
+	router.DELETE("/network/bridge/:Name", briDel)
 	router.PUT("/network/bridge", briUpdate)
 
 	router.POST("/network/vlan", vlanAdd)
-	router.DELETE("/network/vlan/:name", vlanDel)
+	router.DELETE("/network/vlan/:Name", vlanDel)
 	router.PUT("/network/vlan", vlanUpdate)
 
-	router.POST("/network/ip", ipAdd)
-	router.DELETE("/network/ip", ipDel)
+	router.POST("/network/Ip", ipAdd)
+	router.DELETE("/network/Ip", ipDel)
 
 	log.Info("服务启动")
 	err := http.ListenAndServe(":9090", router) //设置监听的端口
@@ -138,9 +138,9 @@ func bondUpdate(resp http.ResponseWriter, req *http.Request, ps httprouter.Param
 func bondDel(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 	var rm ResponseMessage
 	resp.Header().Set("Content-Type", "application/json")
-	name := ps.ByName("name")
+	name := ps.ByName("Name")
 	if name == "" {
-		rm = ResponseMessage{Status: false, Message: "Bond删除失败.Bond's name can not be empty", Code: http.StatusInternalServerError}
+		rm = ResponseMessage{Status: false, Message: "Bond删除失败.Bond's Name can not be empty", Code: http.StatusInternalServerError}
 	} else if err := BondDel(name); err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bond删除失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
@@ -186,9 +186,9 @@ func briUpdate(resp http.ResponseWriter, req *http.Request, ps httprouter.Params
 func briDel(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 	var rm ResponseMessage
 	resp.Header().Set("Content-Type", "application/json")
-	name := ps.ByName("name")
+	name := ps.ByName("Name")
 	if name == "" {
-		rm = ResponseMessage{Status: false, Message: "Bridge删除失败.Bridge's name can not be empty", Code: http.StatusInternalServerError}
+		rm = ResponseMessage{Status: false, Message: "Bridge删除失败.Bridge's Name can not be empty", Code: http.StatusInternalServerError}
 
 	} else if err := BridgeDel(name); err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bridge删除失败." + err.Error(), Code: http.StatusInternalServerError}
@@ -222,7 +222,7 @@ func vlanUpdate(resp http.ResponseWriter, req *http.Request, ps httprouter.Param
 	v, err := getVlanJSONParam(req)
 	if err != nil {
 		rm = ResponseMessage{Status: false, Message: "Vlan更新失败." + err.Error(), Code: http.StatusInternalServerError}
-	} else if err := VlanAdd(v.Name, v.Tag, v.Parent); err != nil {
+	} else if err := VlanUpdate(v.Name, v.Tag, v.Parent); err != nil {
 		rm = ResponseMessage{Status: false, Message: "Vlan更新失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
 		log.WithField("Vlan", Vlan{Name: v.Name, Parent: v.Parent, Tag: v.Tag}).Info("更新Vlan")
@@ -235,9 +235,9 @@ func vlanUpdate(resp http.ResponseWriter, req *http.Request, ps httprouter.Param
 func vlanDel(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 	var rm ResponseMessage
 	resp.Header().Set("Content-Type", "application/json")
-	name := ps.ByName("name")
+	name := ps.ByName("Name")
 	if name == "" {
-		rm = ResponseMessage{Status: false, Message: "Vlan删除失败. Vlan's name can not be empty", Code: http.StatusInternalServerError}
+		rm = ResponseMessage{Status: false, Message: "Vlan删除失败. Vlan's Name can not be empty", Code: http.StatusInternalServerError}
 	} else if err := BondDel(name); err != nil || name == "" {
 		rm = ResponseMessage{Status: false, Message: "Vlan删除失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
@@ -254,10 +254,10 @@ func ipAdd(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 	i, err := getIPJSONParam(req)
 	if err != nil {
 		rm = ResponseMessage{Status: false, Message: "IP添加失败." + err.Error(), Code: http.StatusInternalServerError}
-	} else if err := AssignIP(i.name, i.ips); err != nil {
+	} else if err := AssignIP(i.Name, i.Ip); err != nil {
 		rm = ResponseMessage{Status: false, Message: "IP添加失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
-		log.WithField("IP", i.ips).Info(i.name + "添加IP")
+		log.WithField("IP", i.Ip).Info(i.Name + "添加IP")
 		rm = ResponseMessage{Status: true, Message: "IP添加成功", Code: http.StatusCreated}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -270,10 +270,10 @@ func ipDel(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 	i, err := getIPJSONParam(req)
 	if err != nil {
 		rm = ResponseMessage{Status: false, Message: "IP删除失败." + err.Error(), Code: http.StatusInternalServerError}
-	} else if err := DelIP(i.name, i.ips[0]); err != nil {
+	} else if err := DelIP(i.Name, i.Ip[0]); err != nil {
 		rm = ResponseMessage{Status: false, Message: "IPk删除失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
-		log.Info(i.name + "删除IP " + i.ips[0])
+		log.Info(i.Name + "删除IP " + i.Ip[0])
 		rm = ResponseMessage{Status: true, Message: "IP删除成功", Code: http.StatusOK}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -334,7 +334,7 @@ func BridgeAdd(name string, dev []string, mtu int) error {
 	return nil
 }
 
-func BridgeUpdate(name string, dev []string, mtu int) error { // can not modify name
+func BridgeUpdate(name string, dev []string, mtu int) error { // can not modify Name
 	if err := BridgeDel(name); err != nil {
 		log.WithError(err).Error("Bond " + name + " del fail")
 		return err
@@ -417,7 +417,7 @@ func BondDel(name string) error {
 	return nil
 }
 
-func BondUpdate(name string, mode int, dev []string) error { // can not modify name
+func BondUpdate(name string, mode int, dev []string) error { // can not modify Name
 	if err := BondDel(name); err != nil {
 		log.WithError(err).Error("Bond " + name + " del fail")
 		return err
@@ -450,7 +450,7 @@ func VlanAdd(name string, tag int, parent string) error {
 	return nil
 }
 
-func VlanUpdate(name string, tag int, parent string) error { // can not modify name
+func VlanUpdate(name string, tag int, parent string) error { // can not modify Name
 	if err := VlanDel(name); err != nil {
 		log.WithError(err).Error("Vlan " + name + " del fail")
 		return err
@@ -619,7 +619,7 @@ func getBondJSONParam(req *http.Request) (Bond, error) {
 		return Bond{}, errors.New("用户输入参数格式有误")
 	}
 	if bond.Name == "" {
-		return Bond{}, errors.New("Bond's name can not be empty")
+		return Bond{}, errors.New("Bond's Name can not be empty")
 	}
 	return bond, nil
 }
@@ -633,7 +633,7 @@ func getBridgeJSONParam(req *http.Request) (Bridge, error) {
 	}
 
 	if bri.Name == "" {
-		return Bridge{}, errors.New("Bridge's name can not be empty")
+		return Bridge{}, errors.New("Bridge's Name can not be empty")
 	}
 
 	if bri.Mtu == 0 {
@@ -651,7 +651,7 @@ func getVlanJSONParam(req *http.Request) (Vlan, error) {
 	}
 
 	if v.Name == "" {
-		return Vlan{}, errors.New("Vlan's name can not be empty")
+		return Vlan{}, errors.New("Vlan's Name can not be empty")
 	}
 	if v.Parent == "" {
 		return Vlan{}, errors.New("Vlan's parent can not be empty")
@@ -661,8 +661,8 @@ func getVlanJSONParam(req *http.Request) (Vlan, error) {
 
 // used to unmarshal req
 type ipParam struct {
-	name string
-	ips  []string
+	Name string
+	Ip   []string
 }
 
 func getIPJSONParam(req *http.Request) (ipParam, error) {
@@ -673,8 +673,8 @@ func getIPJSONParam(req *http.Request) (ipParam, error) {
 		return ipParam{}, errors.New("用户输入参数格式有误")
 	}
 
-	if i.name == "" {
-		return ipParam{}, errors.New("Device name can not be empty when setting IP")
+	if i.Name == "" {
+		return ipParam{}, errors.New("Device Name can not be empty when setting IP")
 	}
 	return i, nil
 }

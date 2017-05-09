@@ -41,7 +41,7 @@ func TestBondAdd(t *testing.T) {
 	assert.Nil(t, err)
 
 	err2 := BondAdd("bond0", 0, []string{})
-	assert.Error(t, err2, "name alerady exists")
+	assert.Error(t, err2, "Name alerady exists")
 
 	err3 := BondAdd("bond2", 0, []string{"eth2"})
 	assert.Error(t, err3, "dev has alerady been occupied")
@@ -62,7 +62,7 @@ func TestBridgeAdd(t *testing.T) {
 	assert.Nil(t, err)
 
 	err2 := BridgeAdd("bridge0", []string{}, 1333)
-	assert.Error(t, err2, "name alerady exists")
+	assert.Error(t, err2, "Name alerady exists")
 
 	err3 := BridgeAdd("bridge2", []string{"eth4"}, 1333)
 	assert.Error(t, err3, "dev has alerady been occupied")
@@ -83,7 +83,7 @@ func TestVlanAdd(t *testing.T) {
 	assert.Nil(t, err)
 
 	err2 := VlanAdd("vlan0", 0, "")
-	assert.Error(t, err2, "name alerady exists")
+	assert.Error(t, err2, "Name alerady exists")
 }
 
 func TestVlanDel(t *testing.T) {
