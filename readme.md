@@ -26,7 +26,7 @@
 1. GET /network/config 获取数据库中的网络配置
     - Example
     
-          curl -XGET "http://127.0.0.1:9090/config"
+          curl -XGET "http://127.0.0.1:9090/network/config"
           
     - Response
            
@@ -80,7 +80,7 @@
 2. GET /network/init 初始化网络,删除所有的bonds ,bridges, vlans.只开启一个管理口,其他口都是关闭状态.
     - Example
     
-          curl -XGET "http://127.0.0.1:9090/init"
+          curl -XGET "http://127.0.0.1:9090/network/init"
           
     - Response
            
@@ -95,7 +95,7 @@
 3. GET /network/apply 应用数据库中的网络配置到系统
     - Example
     
-          curl -XGET "http://127.0.0.1:9090/apply"
+          curl -XGET "http://127.0.0.1:9090/network/apply"
           
     - Response
            
@@ -163,12 +163,13 @@
           dev: 组成Bond的接口,用方括号括起,多个接口用逗号隔开;
     - Example
     
-          {"name":"bond0", "mode":"4", "devs": ["eth0","eth1"]}
-          {"name":"bond1", "mode":"0", "devs": ["eth3"]}
+          a. {"name":"bond0", "mode":"4", "devs": ["eth0","eth1"]}
+          b. {"name":"bond1", "mode":"0", "devs": ["eth3"]}
+          c. {"name":"bond13", "mode":"0", "devs": ["eth0","eth4"]}
           
     - Response
-          
-        添加成功 
+       
+        1.
         ```json
         {
           "status": true,
@@ -177,13 +178,22 @@
         }
        ```
        
-       添加失败
+       2. 
        ```json
        {
          "status": false,
          "message": "Bond添加失败.Interface name alerady exists",
          "code": 500
        }
+       ```
+       
+       3. 
+       ```json
+        {
+          "status": false,
+          "message": "Bond添加失败.Devs has alerady been occupied",
+          "code": 500
+        }
        ```
        
           201:在数据库中创建bond成功

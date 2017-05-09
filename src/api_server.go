@@ -96,8 +96,7 @@ func apply(resp http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 		rm = ResponseMessage{Status: false, Message: "应用网络配置失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
 		sysConfig, _ := GetConfigFromSys()
-		r, _ := json.MarshalIndent(sysConfig, "", "\t")
-		rm = ResponseMessage{Result: r, Status: true, Message: "应用网络配置成功", Code: http.StatusOK}
+		rm = ResponseMessage{Result: sysConfig, Status: true, Message: "应用网络配置成功", Code: http.StatusOK}
 	}
 
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -110,13 +109,10 @@ func bondAdd(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) 
 	bond, err := getBondJSONParam(req)
 	if err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bond添加失败." + err.Error(), Code: http.StatusInternalServerError}
-	}
-
-	log.WithField("Bond", Bond{Name: bond.Name, Mode: bond.Mode, Devs: bond.Devs}).Info("添加Bond")
-
-	if err := BondAdd(bond.Name, bond.Mode, bond.Devs); err != nil {
+	} else if err := BondAdd(bond.Name, bond.Mode, bond.Devs); err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bond添加失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
+		log.WithField("Bond", Bond{Name: bond.Name, Mode: bond.Mode, Devs: bond.Devs}).Info("添加Bond")
 		rm = ResponseMessage{Status: true, Message: "Bond添加成功", Code: http.StatusCreated}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -129,13 +125,10 @@ func bondUpdate(resp http.ResponseWriter, req *http.Request, ps httprouter.Param
 	bond, err := getBondJSONParam(req)
 	if err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bond更新失败." + err.Error(), Code: http.StatusInternalServerError}
-	}
-
-	log.WithField("Bond", Bond{Name: bond.Name, Mode: bond.Mode, Devs: bond.Devs}).Info("更新Bond")
-
-	if err := BondUpdate(bond.Name, int(bond.Mode), bond.Devs); err != nil {
+	} else if err := BondUpdate(bond.Name, int(bond.Mode), bond.Devs); err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bond更新失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
+		log.WithField("Bond", Bond{Name: bond.Name, Mode: bond.Mode, Devs: bond.Devs}).Info("更新Bond")
 		rm = ResponseMessage{Status: true, Message: "Bond更新成功", Code: http.StatusOK}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -146,11 +139,12 @@ func bondDel(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) 
 	var rm ResponseMessage
 	resp.Header().Set("Content-Type", "application/json")
 	name := ps.ByName("name")
-	log.Info("删除Bond:" + name)
-
-	if err := BondDel(name); err != nil {
+	if name == "" {
+		rm = ResponseMessage{Status: false, Message: "Bond删除失败.Bond's name can not be empty", Code: http.StatusInternalServerError}
+	} else if err := BondDel(name); err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bond删除失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
+		log.Info("删除Bond:" + name)
 		rm = ResponseMessage{Status: true, Message: "Bond删除成功", Code: http.StatusOK}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -163,13 +157,10 @@ func briAdd(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 	bri, err := getBridgeJSONParam(req)
 	if err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bridge添加失败." + err.Error(), Code: http.StatusInternalServerError}
-	}
-
-	log.WithField("Bridge", Bridge{Name: bri.Name, Devs: bri.Devs, Mtu: bri.Mtu}).Info("添加Bridge")
-
-	if err := BridgeAdd(bri.Name, bri.Devs, bri.Mtu); err != nil {
+	} else if err := BridgeAdd(bri.Name, bri.Devs, bri.Mtu); err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bridge添加失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
+		log.WithField("Bridge", Bridge{Name: bri.Name, Devs: bri.Devs, Mtu: bri.Mtu}).Info("添加Bridge")
 		rm = ResponseMessage{Status: true, Message: "Bridge添加成功", Code: http.StatusCreated}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -182,13 +173,10 @@ func briUpdate(resp http.ResponseWriter, req *http.Request, ps httprouter.Params
 	bri, err := getBridgeJSONParam(req)
 	if err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bridge更新失败." + err.Error(), Code: http.StatusInternalServerError}
-	}
-
-	log.WithField("Bridge", Bridge{Name: bri.Name, Devs: bri.Devs, Mtu: bri.Mtu}).Info("更新Bridge")
-
-	if err := BridgeUpdate(bri.Name, bri.Devs, bri.Mtu); err != nil {
+	} else if err := BridgeUpdate(bri.Name, bri.Devs, bri.Mtu); err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bridge更新失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
+		log.WithField("Bridge", Bridge{Name: bri.Name, Devs: bri.Devs, Mtu: bri.Mtu}).Info("更新Bridge")
 		rm = ResponseMessage{Status: true, Message: "Bridge更新成功", Code: http.StatusOK}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -199,11 +187,13 @@ func briDel(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 	var rm ResponseMessage
 	resp.Header().Set("Content-Type", "application/json")
 	name := ps.ByName("name")
-	log.Info("删除Bridge:" + name)
+	if name == "" {
+		rm = ResponseMessage{Status: false, Message: "Bridge删除失败.Bridge's name can not be empty", Code: http.StatusInternalServerError}
 
-	if err := BridgeDel(name); err != nil {
+	} else if err := BridgeDel(name); err != nil {
 		rm = ResponseMessage{Status: false, Message: "Bridge删除失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
+		log.Info("删除Bridge:" + name)
 		rm = ResponseMessage{Status: true, Message: "Bridge删除成功", Code: http.StatusOK}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -216,13 +206,10 @@ func vlanAdd(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) 
 	v, err := getVlanJSONParam(req)
 	if err != nil {
 		rm = ResponseMessage{Status: false, Message: "Vlan添加失败." + err.Error(), Code: http.StatusInternalServerError}
-	}
-
-	log.WithField("Vlan", Vlan{Name: v.Name, Parent: v.Parent, Tag: v.Tag}).Info("添加Vlan")
-
-	if err := VlanAdd(v.Name, v.Tag, v.Parent); err != nil {
+	} else if err := VlanAdd(v.Name, v.Tag, v.Parent); err != nil {
 		rm = ResponseMessage{Status: false, Message: "Vlan添加失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
+		log.WithField("Vlan", Vlan{Name: v.Name, Parent: v.Parent, Tag: v.Tag}).Info("添加Vlan")
 		rm = ResponseMessage{Status: true, Message: "Vlan添加成功", Code: http.StatusCreated}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -235,13 +222,10 @@ func vlanUpdate(resp http.ResponseWriter, req *http.Request, ps httprouter.Param
 	v, err := getVlanJSONParam(req)
 	if err != nil {
 		rm = ResponseMessage{Status: false, Message: "Vlan更新失败." + err.Error(), Code: http.StatusInternalServerError}
-	}
-
-	log.WithField("Vlan", Vlan{Name: v.Name, Parent: v.Parent, Tag: v.Tag}).Info("更新Vlan")
-
-	if err := VlanAdd(v.Name, v.Tag, v.Parent); err != nil {
+	} else if err := VlanAdd(v.Name, v.Tag, v.Parent); err != nil {
 		rm = ResponseMessage{Status: false, Message: "Vlan更新失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
+		log.WithField("Vlan", Vlan{Name: v.Name, Parent: v.Parent, Tag: v.Tag}).Info("更新Vlan")
 		rm = ResponseMessage{Status: true, Message: "Vlan更新成功", Code: http.StatusOK}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -252,11 +236,12 @@ func vlanDel(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) 
 	var rm ResponseMessage
 	resp.Header().Set("Content-Type", "application/json")
 	name := ps.ByName("name")
-	log.Info("删除Vlan:" + name)
-
-	if err := BondDel(name); err != nil {
+	if name == "" {
+		rm = ResponseMessage{Status: false, Message: "Vlan删除失败. Vlan's name can not be empty", Code: http.StatusInternalServerError}
+	} else if err := BondDel(name); err != nil || name == "" {
 		rm = ResponseMessage{Status: false, Message: "Vlan删除失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
+		log.Info("删除Vlan:" + name)
 		rm = ResponseMessage{Status: true, Message: "Vlan删除成功", Code: http.StatusOK}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -269,13 +254,10 @@ func ipAdd(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 	i, err := getIPJSONParam(req)
 	if err != nil {
 		rm = ResponseMessage{Status: false, Message: "IP添加失败." + err.Error(), Code: http.StatusInternalServerError}
-	}
-
-	log.WithField("IP", i.ips).Info(i.name + "添加IP")
-
-	if err := AssignIP(i.name, i.ips); err != nil {
+	} else if err := AssignIP(i.name, i.ips); err != nil {
 		rm = ResponseMessage{Status: false, Message: "IP添加失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
+		log.WithField("IP", i.ips).Info(i.name + "添加IP")
 		rm = ResponseMessage{Status: true, Message: "IP添加成功", Code: http.StatusCreated}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
@@ -288,13 +270,10 @@ func ipDel(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 	i, err := getIPJSONParam(req)
 	if err != nil {
 		rm = ResponseMessage{Status: false, Message: "IP删除失败." + err.Error(), Code: http.StatusInternalServerError}
-	}
-
-	log.Info(i.name + "删除IP " + i.ips[0])
-
-	if err := DelIP(i.name, i.ips[0]); err != nil {
-		rm = ResponseMessage{Status: false, Message: "IP删除失败." + err.Error(), Code: http.StatusInternalServerError}
+	} else if err := DelIP(i.name, i.ips[0]); err != nil {
+		rm = ResponseMessage{Status: false, Message: "IPk删除失败." + err.Error(), Code: http.StatusInternalServerError}
 	} else {
+		log.Info(i.name + "删除IP " + i.ips[0])
 		rm = ResponseMessage{Status: true, Message: "IP删除成功", Code: http.StatusOK}
 	}
 	ret, _ := json.MarshalIndent(rm, "", "\t")
